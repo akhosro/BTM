@@ -1,0 +1,39 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (CRITICAL - Never commit secrets!)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+ml-service/.env
+
+# Allow template files to be committed
+!.env.example
+!ml-service/.env.example
+
+# Production secrets file (CRITICAL - Never commit!)
+PRODUCTION_SECRETS.txt
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
