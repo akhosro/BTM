@@ -2,7 +2,7 @@
 nixPkgs = ['python311', 'gcc', 'postgresql']
 
 [phases.install]
-cmds = ['cd ml-service && pip install --no-cache-dir -r requirements.txt']
+cmds = ['pip install --no-cache-dir -r requirements.txt']
 
 [start]
-cmd = 'cd ml-service && python -m app.main'
+cmd = 'python -m app.main'
