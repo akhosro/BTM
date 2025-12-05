@@ -1,3 +1,4 @@
+# Railway Python ML Service Configuration
 [phases.setup]
 nixPkgs = ['python311', 'python311Packages.pip', 'python311Packages.virtualenv', 'gcc', 'postgresql']
 
