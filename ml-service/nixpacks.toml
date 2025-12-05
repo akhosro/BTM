@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ['python311', 'gcc', 'postgresql']
+nixPkgs = ['python311', 'python311Packages.pip', 'python311Packages.virtualenv', 'gcc', 'postgresql']
 
 [phases.install]
-cmds = ['pip install --no-cache-dir -r requirements.txt']
+cmds = ['pip3 install --no-cache-dir -r requirements.txt']
 
 [start]
-cmd = 'python -m app.main'
+cmd = 'python3 -m app.main'
