@@ -1,3 +1,4 @@
+# Railway Docker deployment for Python ML Service
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
