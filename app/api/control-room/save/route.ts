@@ -15,6 +15,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // TODO: Implement proper authentication and get real user ID
+    // For now, using a default user ID for MVP
+    const userId = "default-user-id";
+
     const savedSites: any[] = [];
     const savedMeters: any[] = [];
     const siteIdMap = new Map<string, string>(); // Map temp site IDs to real site IDs
@@ -70,6 +74,7 @@ export async function POST(request: Request) {
         const [newSite] = await db
           .insert(sites)
           .values({
+            userId,
             name: siteData.name,
             location: siteData.location,
             latitude: siteData.latitude,
