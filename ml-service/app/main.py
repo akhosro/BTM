@@ -18,7 +18,12 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js frontend
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "https://btm-5sw1fyvj9-khosropourarman-gmailcoms-projects.vercel.app",  # Vercel production
+        "https://enalysis.io",  # Custom domain (when configured)
+        "https://www.enalysis.io",  # Custom domain with www
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
