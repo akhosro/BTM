@@ -15,6 +15,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // TODO: Implement proper authentication and get real user ID
+    // For now, using a default user ID for MVP
+    const userId = "default-user-id";
+
     // Start a transaction
     const result = await db.transaction(async (tx) => {
       const createdSites: any[] = [];
@@ -26,6 +30,7 @@ export async function POST(request: Request) {
         const [site] = await tx
           .insert(sites)
           .values({
+            userId,
             name: siteConfig.name,
             location: siteConfig.location,
             latitude: siteConfig.latitude,

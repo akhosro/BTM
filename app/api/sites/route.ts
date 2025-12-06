@@ -58,9 +58,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { portfolioId, name, location, industryType, description, estimatedLoad } = body;
 
-    if (!portfolioId || !name) {
+    if (!name) {
       return NextResponse.json(
-        { error: "Portfolio ID and site name are required" },
+        { error: "Site name is required" },
         { status: 400 }
       );
     }
@@ -69,7 +69,6 @@ export async function POST(request: Request) {
       .insert(sites)
       .values({
         userId, // Assign site to current user
-        portfolioId,
         name,
         location,
         industryType: industryType || "other",

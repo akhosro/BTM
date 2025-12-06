@@ -1,1 +1,0 @@
-DROP TABLE "weather_data" CASCADE;

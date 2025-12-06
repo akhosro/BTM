@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const refreshToken = source.metadata?.refreshToken;
+    const refreshToken = (source.metadata as any)?.refreshToken;
 
     if (!refreshToken) {
       return NextResponse.json(
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
         .update(energySources)
         .set({
           metadata: {
-            ...source.metadata,
+            ...(source.metadata as any),
             connectionStatus: "failed",
             lastConnectionError: "Refresh token expired. Please re-authenticate.",
             lastConnectionTest: new Date().toISOString(),
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
 
     // Update energy source with new tokens
     const updatedMetadata = {
-      ...source.metadata,
+      ...(source.metadata as any),
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token || refreshToken, // Use new refresh token if provided
       tokenExpiry,

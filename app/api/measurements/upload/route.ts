@@ -26,9 +26,12 @@ export async function POST(request: Request) {
 
     // Prepare measurements for bulk insert
     const measurementsToInsert = data.map((record: any) => ({
-      meterId,
+      entityId: meterId,
+      entityType: "meter",
       timestamp: new Date(record.timestamp),
+      metric: record.metric || "energy",
       value: parseFloat(record.value),
+      unit: record.unit || "kWh",
       quality: record.quality || "good",
       metadata: record.metadata || {},
     }));

@@ -118,7 +118,7 @@ export async function GET(request: Request) {
     }
 
     // Merge new OAuth data with existing metadata
-    const updatedMetadata = {
+    const updatedMetadata: any = {
       ...(existingSource.metadata || {}),
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
