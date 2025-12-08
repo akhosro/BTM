@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { sites, recommendations } from "@/db/schema";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/session";
 
 export async function GET(request: Request) {
@@ -13,16 +13,25 @@ export async function GET(request: Request) {
     const timeRange = searchParams.get("timeRange") || "today";
     // const region = searchParams.get("region") || "all"; // TODO: Implement region filtering when needed
 
-    // Get the first site belonging to the current user if no siteId provided
-    const site = siteId
-      ? await db.select().from(sites).where(and(eq(sites.id, siteId), eq(sites.userId, userId))).limit(1)
-      : await db.select().from(sites).where(and(eq(sites.active, true), eq(sites.userId, userId))).limit(1);
+    console.log(`[RECOMMENDATIONS API] Called with userId=${userId}, siteId=${siteId}, status=${status}, timeRange=${timeRange}`);
 
-    if (!site || site.length === 0) {
+    // Get all user sites or specific site
+    let userSites;
+    if (siteId) {
+      // Get specific site
+      userSites = await db.select().from(sites).where(and(eq(sites.id, siteId), eq(sites.userId, userId))).limit(1);
+    } else {
+      // Get all active sites for user
+      userSites = await db.select().from(sites).where(and(eq(sites.active, true), eq(sites.userId, userId)));
+    }
+
+    console.log(`[RECOMMENDATIONS API] Found ${userSites?.length || 0} sites for user`);
+
+    if (!userSites || userSites.length === 0) {
+      console.log(`[RECOMMENDATIONS API] No sites found, returning empty array`);
       return NextResponse.json({ recommendations: [] });
     }
 
-    const selectedSite = site[0];
     const now = new Date();
 
     // Calculate time window based on timeRange
@@ -48,10 +57,10 @@ export async function GET(request: Request) {
         endTime.setHours(23, 59, 59, 999);
     }
 
-    // Build query conditions
-    const conditions = [
-      eq(recommendations.siteId, selectedSite.id)
-    ];
+    // Build query conditions - if siteId provided, filter by it; otherwise get all sites
+    const conditions = siteId
+      ? [eq(recommendations.siteId, siteId)]
+      : [];
 
     // Add status filter if not "all"
     if (status !== "all") {
@@ -93,10 +102,23 @@ export async function GET(request: Request) {
     const recs = await db
       .select()
       .from(recommendations)
-      .where(and(...conditions))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(recommendations.confidence));
 
-    console.log(`[DEBUG] Found ${recs.length} recommendations matching criteria`);
+    console.log(`[RECOMMENDATIONS API] Query conditions:`, conditions.map(c => c.toString()));
+    console.log(`[RECOMMENDATIONS API] Found ${recs.length} recommendations matching criteria`);
+    if (recs.length > 0) {
+      console.log(`[RECOMMENDATIONS API] Sample recommendation:`, {
+        id: recs[0].id,
+        headline: recs[0].headline,
+        siteId: recs[0].siteId,
+        status: recs[0].status,
+        recommendedTimeStart: recs[0].recommendedTimeStart
+      });
+    }
+
+    // Create a map of siteId to siteName for efficient lookup
+    const siteMap = new Map(userSites.map(s => [s.id, s.name]));
 
     // Map to frontend format
     const mappedRecs = recs.map((rec) => ({
@@ -104,7 +126,7 @@ export async function GET(request: Request) {
       headline: rec.headline,
       description: rec.description,
       type: rec.type,
-      site: selectedSite.name,
+      site: siteMap.get(rec.siteId) || "Unknown Site",
       timestamp: rec.createdAt.toISOString(),
       status: rec.status,
       confidence: rec.confidence,

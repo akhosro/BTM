@@ -11,17 +11,22 @@ export async function GET(request: Request) {
     const siteId = searchParams.get("siteId");
     const timeRange = searchParams.get("timeRange") || "today";
     // const region = searchParams.get("region") || "all"; // TODO: Implement region filtering when needed
+    // Portfolio-level aggregation when no siteId is provided
 
-    // Get the first site belonging to the current user if no siteId provided
-    const site = siteId
-      ? await db.select().from(sites).where(and(eq(sites.id, siteId), eq(sites.userId, userId))).limit(1)
-      : await db.select().from(sites).where(and(eq(sites.active, true), eq(sites.userId, userId))).limit(1);
+    // Get sites - specific site if siteId provided, otherwise all active sites
+    let userSites;
+    if (siteId) {
+      userSites = await db.select().from(sites).where(and(eq(sites.id, siteId), eq(sites.userId, userId))).limit(1);
+    } else {
+      userSites = await db.select().from(sites).where(and(eq(sites.active, true), eq(sites.userId, userId)));
+    }
 
-    if (!site || site.length === 0) {
+    if (!userSites || userSites.length === 0) {
       return NextResponse.json({ error: "No active site found" }, { status: 404 });
     }
 
-    const selectedSite = site[0];
+    const isPortfolioView = !siteId && userSites.length > 1;
+    const selectedSite = userSites[0]; // For single-site or fallback
 
     const now = new Date();
 
@@ -47,41 +52,111 @@ export async function GET(request: Request) {
     // Get consumption forecast (using selected time range)
     const last24h = startTime;
 
-    const consMeters = await db
-      .select()
-      .from(meters)
-      .where(and(eq(meters.siteId, selectedSite.id), eq(meters.category, "CONS")));
-
+    // Aggregate consumption across all sites in portfolio view
     let totalConsumption = 0;
-    if (consMeters.length > 0) {
-      const consMeasurements = await db
-        .select()
-        .from(measurements)
-        .where(
-          and(
-            eq(measurements.entityId, consMeters[0].id),
-            eq(measurements.entityType, "meter"),
-            gte(measurements.timestamp, last24h)
-          )
-        );
+    if (isPortfolioView) {
+      for (const site of userSites) {
+        const siteConsMeters = await db
+          .select()
+          .from(meters)
+          .where(and(eq(meters.siteId, site.id), eq(meters.category, "CONS")));
 
-      totalConsumption = consMeasurements.reduce((sum, m) => sum + m.value, 0);
+        if (siteConsMeters.length > 0) {
+          const siteMeasurements = await db
+            .select()
+            .from(measurements)
+            .where(
+              and(
+                eq(measurements.entityId, siteConsMeters[0].id),
+                eq(measurements.entityType, "meter"),
+                gte(measurements.timestamp, last24h)
+              )
+            );
+          totalConsumption += siteMeasurements.reduce((sum, m) => sum + m.value, 0);
+        }
+      }
+    } else {
+      const consMeters = await db
+        .select()
+        .from(meters)
+        .where(and(eq(meters.siteId, selectedSite.id), eq(meters.category, "CONS")));
+
+      if (consMeters.length > 0) {
+        const consMeasurements = await db
+          .select()
+          .from(measurements)
+          .where(
+            and(
+              eq(measurements.entityId, consMeters[0].id),
+              eq(measurements.entityType, "meter"),
+              gte(measurements.timestamp, last24h)
+            )
+          );
+
+        totalConsumption = consMeasurements.reduce((sum, m) => sum + m.value, 0);
+      }
     }
 
-    // Get pricing info
-    const pricingData = await db
-      .select()
-      .from(electricityPricing)
-      .where(eq(electricityPricing.siteId, selectedSite.id))
-      .orderBy(desc(electricityPricing.validFrom))
-      .limit(1);
-
-    // Calculate average rate from rate structure
+    // Get pricing info and calculate weighted average rate
     let avgRate = 0.12; // Fallback
-    if (pricingData.length > 0 && pricingData[0].rateStructure) {
-      const rates = Object.values(pricingData[0].rateStructure as Record<string, any>)
-        .filter(r => typeof r === 'number');
-      avgRate = rates.length > 0 ? rates.reduce((sum, r) => sum + r, 0) / rates.length : 0.12;
+    if (isPortfolioView) {
+      // Calculate weighted average rate across all sites
+      let totalWeightedRate = 0;
+      let totalSiteConsumption = 0;
+
+      for (const site of userSites) {
+        const sitePricing = await db
+          .select()
+          .from(electricityPricing)
+          .where(eq(electricityPricing.siteId, site.id))
+          .orderBy(desc(electricityPricing.validFrom))
+          .limit(1);
+
+        if (sitePricing.length > 0 && sitePricing[0].rateStructure) {
+          const rates = Object.values(sitePricing[0].rateStructure as Record<string, any>)
+            .filter(r => typeof r === 'number');
+          const siteRate = rates.length > 0 ? rates.reduce((sum, r) => sum + r, 0) / rates.length : 0.12;
+
+          // Get site's consumption for weighting
+          const siteConsMeters = await db
+            .select()
+            .from(meters)
+            .where(and(eq(meters.siteId, site.id), eq(meters.category, "CONS")));
+
+          let siteConsumption = 0;
+          if (siteConsMeters.length > 0) {
+            const siteMeasurements = await db
+              .select()
+              .from(measurements)
+              .where(
+                and(
+                  eq(measurements.entityId, siteConsMeters[0].id),
+                  eq(measurements.entityType, "meter"),
+                  gte(measurements.timestamp, last24h)
+                )
+              );
+            siteConsumption = siteMeasurements.reduce((sum, m) => sum + m.value, 0);
+          }
+
+          totalWeightedRate += siteRate * siteConsumption;
+          totalSiteConsumption += siteConsumption;
+        }
+      }
+
+      avgRate = totalSiteConsumption > 0 ? totalWeightedRate / totalSiteConsumption : 0.12;
+    } else {
+      const pricingData = await db
+        .select()
+        .from(electricityPricing)
+        .where(eq(electricityPricing.siteId, selectedSite.id))
+        .orderBy(desc(electricityPricing.validFrom))
+        .limit(1);
+
+      if (pricingData.length > 0 && pricingData[0].rateStructure) {
+        const rates = Object.values(pricingData[0].rateStructure as Record<string, any>)
+          .filter(r => typeof r === 'number');
+        avgRate = rates.length > 0 ? rates.reduce((sum, r) => sum + r, 0) / rates.length : 0.12;
+      }
     }
     const energySpendForecast = (totalConsumption / 24) * 24 * avgRate; // Next 24h forecast
 
@@ -89,19 +164,49 @@ export async function GET(request: Request) {
     const historicalStart = new Date(now.getTime() - 48 * 60 * 60 * 1000);
     const historicalEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     let historicalConsumption = 0;
-    if (consMeters.length > 0) {
-      const historicalMeasurements = await db
+
+    if (isPortfolioView) {
+      for (const site of userSites) {
+        const siteConsMeters = await db
+          .select()
+          .from(meters)
+          .where(and(eq(meters.siteId, site.id), eq(meters.category, "CONS")));
+
+        if (siteConsMeters.length > 0) {
+          const historicalMeasurements = await db
+            .select()
+            .from(measurements)
+            .where(
+              and(
+                eq(measurements.entityId, siteConsMeters[0].id),
+                eq(measurements.entityType, "meter"),
+                gte(measurements.timestamp, historicalStart),
+                lte(measurements.timestamp, historicalEnd)
+              )
+            );
+          historicalConsumption += historicalMeasurements.reduce((sum, m) => sum + m.value, 0);
+        }
+      }
+    } else {
+      const consMeters = await db
         .select()
-        .from(measurements)
-        .where(
-          and(
-            eq(measurements.entityId, consMeters[0].id),
-            eq(measurements.entityType, "meter"),
-            gte(measurements.timestamp, historicalStart),
-            lte(measurements.timestamp, historicalEnd)
-          )
-        );
-      historicalConsumption = historicalMeasurements.reduce((sum, m) => sum + m.value, 0);
+        .from(meters)
+        .where(and(eq(meters.siteId, selectedSite.id), eq(meters.category, "CONS")));
+
+      if (consMeters.length > 0) {
+        const historicalMeasurements = await db
+          .select()
+          .from(measurements)
+          .where(
+            and(
+              eq(measurements.entityId, consMeters[0].id),
+              eq(measurements.entityType, "meter"),
+              gte(measurements.timestamp, historicalStart),
+              lte(measurements.timestamp, historicalEnd)
+            )
+          );
+        historicalConsumption = historicalMeasurements.reduce((sum, m) => sum + m.value, 0);
+      }
     }
     const historicalSpend = (historicalConsumption / 24) * 24 * avgRate;
     const spendTrend = energySpendForecast > 0 && historicalSpend > 0
@@ -183,40 +288,79 @@ export async function GET(request: Request) {
       : "0";
 
     // Get actual recommendations to calculate optimization opportunity and savings
-    const pendingRecs = await db
-      .select()
-      .from(recommendations)
-      .where(
-        and(
-          eq(recommendations.siteId, selectedSite.id),
-          eq(recommendations.status, "pending"),
-          gte(recommendations.recommendedTimeStart, now)
-        )
-      );
+    let pendingRecs;
+    if (isPortfolioView) {
+      const siteIds = userSites.map(s => s.id);
+      pendingRecs = await db
+        .select()
+        .from(recommendations)
+        .where(
+          and(
+            eq(recommendations.status, "pending"),
+            gte(recommendations.recommendedTimeStart, now)
+          )
+        );
+      // Filter to only user's sites (since we can't use inArray with multiple conditions easily)
+      pendingRecs = pendingRecs.filter(rec => siteIds.includes(rec.siteId));
+    } else {
+      pendingRecs = await db
+        .select()
+        .from(recommendations)
+        .where(
+          and(
+            eq(recommendations.siteId, selectedSite.id),
+            eq(recommendations.status, "pending"),
+            gte(recommendations.recommendedTimeStart, now)
+          )
+        );
+    }
 
     // Sum up all potential cost savings and CO2 reduction from recommendations
     const totalPotentialSavings = pendingRecs.reduce((sum, rec) => sum + (rec.costSavings || 0), 0);
     const totalCO2Reduction = pendingRecs.reduce((sum, rec) => sum + (rec.co2Reduction || 0), 0);
 
     // Calculate optimization opportunity from production vs consumption
-    const prodMeters = await db
-      .select()
-      .from(meters)
-      .where(and(eq(meters.siteId, selectedSite.id), eq(meters.category, "PROD")));
-
     let totalProduction = 0;
-    if (prodMeters.length > 0) {
-      const prodMeasurements = await db
+    if (isPortfolioView) {
+      for (const site of userSites) {
+        const siteProdMeters = await db
+          .select()
+          .from(meters)
+          .where(and(eq(meters.siteId, site.id), eq(meters.category, "PROD")));
+
+        if (siteProdMeters.length > 0) {
+          const siteProdMeasurements = await db
+            .select()
+            .from(measurements)
+            .where(
+              and(
+                eq(measurements.entityId, siteProdMeters[0].id),
+                eq(measurements.entityType, "meter"),
+                gte(measurements.timestamp, last24h)
+              )
+            );
+          totalProduction += siteProdMeasurements.reduce((sum, m) => sum + m.value, 0);
+        }
+      }
+    } else {
+      const prodMeters = await db
         .select()
-        .from(measurements)
-        .where(
-          and(
-            eq(measurements.entityId, prodMeters[0].id),
-            eq(measurements.entityType, "meter"),
-            gte(measurements.timestamp, last24h)
-          )
-        );
-      totalProduction = prodMeasurements.reduce((sum, m) => sum + m.value, 0);
+        .from(meters)
+        .where(and(eq(meters.siteId, selectedSite.id), eq(meters.category, "PROD")));
+
+      if (prodMeters.length > 0) {
+        const prodMeasurements = await db
+          .select()
+          .from(measurements)
+          .where(
+            and(
+              eq(measurements.entityId, prodMeters[0].id),
+              eq(measurements.entityType, "meter"),
+              gte(measurements.timestamp, last24h)
+            )
+          );
+        totalProduction = prodMeasurements.reduce((sum, m) => sum + m.value, 0);
+      }
     }
 
     // Optimization opportunity = percentage of production that could offset consumption
@@ -226,19 +370,48 @@ export async function GET(request: Request) {
 
     // Historical production for trend
     let historicalProduction = 0;
-    if (prodMeters.length > 0) {
-      const historicalProdMeasurements = await db
+    if (isPortfolioView) {
+      for (const site of userSites) {
+        const siteProdMeters = await db
+          .select()
+          .from(meters)
+          .where(and(eq(meters.siteId, site.id), eq(meters.category, "PROD")));
+
+        if (siteProdMeters.length > 0) {
+          const historicalProdMeasurements = await db
+            .select()
+            .from(measurements)
+            .where(
+              and(
+                eq(measurements.entityId, siteProdMeters[0].id),
+                eq(measurements.entityType, "meter"),
+                gte(measurements.timestamp, historicalStart),
+                lte(measurements.timestamp, historicalEnd)
+              )
+            );
+          historicalProduction += historicalProdMeasurements.reduce((sum, m) => sum + m.value, 0);
+        }
+      }
+    } else {
+      const prodMeters = await db
         .select()
-        .from(measurements)
-        .where(
-          and(
-            eq(measurements.entityId, prodMeters[0].id),
-            eq(measurements.entityType, "meter"),
-            gte(measurements.timestamp, historicalStart),
-            lte(measurements.timestamp, historicalEnd)
-          )
-        );
-      historicalProduction = historicalProdMeasurements.reduce((sum, m) => sum + m.value, 0);
+        .from(meters)
+        .where(and(eq(meters.siteId, selectedSite.id), eq(meters.category, "PROD")));
+
+      if (prodMeters.length > 0) {
+        const historicalProdMeasurements = await db
+          .select()
+          .from(measurements)
+          .where(
+            and(
+              eq(measurements.entityId, prodMeters[0].id),
+              eq(measurements.entityType, "meter"),
+              gte(measurements.timestamp, historicalStart),
+              lte(measurements.timestamp, historicalEnd)
+            )
+          );
+        historicalProduction = historicalProdMeasurements.reduce((sum, m) => sum + m.value, 0);
+      }
     }
 
     const historicalOptimization = historicalConsumption > 0 && historicalProduction > 0
@@ -251,17 +424,34 @@ export async function GET(request: Request) {
 
     // Potential savings trend - calculate from historical recommendations
     // Get historical recommendations from last period for comparison
-    const historicalRecs = await db
-      .select()
-      .from(recommendations)
-      .where(
-        and(
-          eq(recommendations.siteId, selectedSite.id),
-          eq(recommendations.status, "pending"),
-          gte(recommendations.recommendedTimeStart, historicalStart),
-          lte(recommendations.recommendedTimeStart, historicalEnd)
-        )
-      );
+    let historicalRecs;
+    if (isPortfolioView) {
+      const siteIds = userSites.map(s => s.id);
+      historicalRecs = await db
+        .select()
+        .from(recommendations)
+        .where(
+          and(
+            eq(recommendations.status, "pending"),
+            gte(recommendations.recommendedTimeStart, historicalStart),
+            lte(recommendations.recommendedTimeStart, historicalEnd)
+          )
+        );
+      // Filter to only user's sites
+      historicalRecs = historicalRecs.filter(rec => siteIds.includes(rec.siteId));
+    } else {
+      historicalRecs = await db
+        .select()
+        .from(recommendations)
+        .where(
+          and(
+            eq(recommendations.siteId, selectedSite.id),
+            eq(recommendations.status, "pending"),
+            gte(recommendations.recommendedTimeStart, historicalStart),
+            lte(recommendations.recommendedTimeStart, historicalEnd)
+          )
+        );
+    }
 
     const historicalSavings = historicalRecs.reduce((sum, rec) => sum + (rec.costSavings || 0), 0);
 
@@ -294,7 +484,7 @@ export async function GET(request: Request) {
         optimizationOpportunity: {
           value: optimizationOpportunity,
           trend: `${parseFloat(optimizationTrend) > 0 ? '+' : ''}${optimizationTrend}%`,
-          description: "Load can be shifted",
+          description: "Self-generation coverage",
           unit: "%",
         },
         potentialSavings: {
@@ -304,7 +494,11 @@ export async function GET(request: Request) {
           carbonReduction: totalCO2Reduction,
         },
       },
-      siteInfo: {
+      siteInfo: isPortfolioView ? {
+        id: "portfolio",
+        name: "All Sites",
+        location: `${userSites.length} sites`,
+      } : {
         id: selectedSite.id,
         name: selectedSite.name,
         location: selectedSite.location,
