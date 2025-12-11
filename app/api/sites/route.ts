@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { sites } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/session";
+import { validateAndGetGridZone } from "@/lib/utils/geocoding";
 
 // GET fetch sites
 export async function GET(request: Request) {
@@ -56,8 +57,9 @@ export async function POST(request: Request) {
   try {
     const userId = await getCurrentUserId();
     const body = await request.json();
-    const { portfolioId, name, location, industryType, description, estimatedLoad } = body;
+    const { name, location, latitude, longitude, gridZone, industryType, description, estimatedLoad } = body;
 
+    // Validate required fields
     if (!name) {
       return NextResponse.json(
         { error: "Site name is required" },
@@ -65,14 +67,38 @@ export async function POST(request: Request) {
       );
     }
 
+    if (latitude === undefined || longitude === undefined) {
+      return NextResponse.json(
+        { error: "Latitude and longitude are required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate coordinates and auto-detect grid zone if not provided
+    let finalGridZone = gridZone;
+
+    if (!finalGridZone) {
+      const validation = validateAndGetGridZone(latitude, longitude);
+      if (!validation.success) {
+        return NextResponse.json(
+          { error: validation.error || "Invalid coordinates" },
+          { status: 400 }
+        );
+      }
+      finalGridZone = validation.gridZone;
+    }
+
     const [newSite] = await db
       .insert(sites)
       .values({
         userId, // Assign site to current user
         name,
-        location,
+        location: location || null,
+        latitude,
+        longitude,
+        gridZone: finalGridZone!,
         industryType: industryType || "other",
-        description,
+        description: description || null,
         metadata: estimatedLoad ? { estimatedLoad } : {},
       })
       .returning();
@@ -81,7 +107,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error creating site:", error);
     return NextResponse.json(
-      { error: "Failed to create site" },
+      {
+        error: "Failed to create site",
+        message: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     );
   }

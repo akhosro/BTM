@@ -50,6 +50,8 @@ export function ControlRoomBuilder() {
   const [newSiteLocation, setNewSiteLocation] = useState("")
   const [newSiteLatitude, setNewSiteLatitude] = useState("")
   const [newSiteLongitude, setNewSiteLongitude] = useState("")
+  const [geocoding, setGeocoding] = useState(false)
+  const [geocodeError, setGeocodeError] = useState<string | null>(null)
 
   // Edit Mode state
   const [isEditMode, setIsEditMode] = useState(false)
@@ -149,6 +151,49 @@ export function ControlRoomBuilder() {
     fetchPortfolios()
   }, [fetchPortfolios])
 
+  const handleGeocodeLocation = async () => {
+    if (!newSiteLocation.trim()) {
+      setGeocodeError("Please enter a location")
+      return
+    }
+
+    setGeocoding(true)
+    setGeocodeError(null)
+
+    try {
+      const response = await fetch("/api/geocode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: newSiteLocation }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Geocoding failed")
+      }
+
+      // Auto-fill coordinates
+      setNewSiteLatitude(data.latitude.toString())
+      setNewSiteLongitude(data.longitude.toString())
+      setNewSiteLocation(data.formattedAddress || newSiteLocation)
+
+      toast({
+        title: "Location Found",
+        description: `Coordinates: ${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`,
+      })
+    } catch (error) {
+      setGeocodeError(error instanceof Error ? error.message : "Geocoding failed")
+      toast({
+        title: "Geocoding Failed",
+        description: error instanceof Error ? error.message : "Could not find coordinates for this location",
+        variant: "destructive",
+      })
+    } finally {
+      setGeocoding(false)
+    }
+  }
+
   const handleCreateNewSite = () => {
     if (!newSiteName.trim()) {
       toast({
@@ -159,36 +204,42 @@ export function ControlRoomBuilder() {
       return
     }
 
-    // Validate coordinates if provided
-    if (newSiteLatitude) {
-      const lat = parseFloat(newSiteLatitude)
-      if (isNaN(lat) || lat < -90 || lat > 90) {
-        toast({
-          title: "Invalid Latitude",
-          description: "Latitude must be between -90 and 90.",
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    if (newSiteLongitude) {
-      const lon = parseFloat(newSiteLongitude)
-      if (isNaN(lon) || lon < -180 || lon > 180) {
-        toast({
-          title: "Invalid Longitude",
-          description: "Longitude must be between -180 and 180.",
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    // Check that if one coordinate is provided, both must be provided
-    if ((newSiteLatitude && !newSiteLongitude) || (!newSiteLatitude && newSiteLongitude)) {
+    if (!newSiteLocation.trim()) {
       toast({
-        title: "Incomplete Coordinates",
-        description: "Please provide both latitude and longitude, or leave both empty.",
+        title: "Location Required",
+        description: "Please enter a site location.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Coordinates are now REQUIRED
+    if (!newSiteLatitude || !newSiteLongitude) {
+      toast({
+        title: "Coordinates Required",
+        description: "Please enter coordinates or use the Geocode button to auto-fill them.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate coordinates
+    const lat = parseFloat(newSiteLatitude)
+    const lon = parseFloat(newSiteLongitude)
+
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      toast({
+        title: "Invalid Latitude",
+        description: "Latitude must be between -90 and 90.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (isNaN(lon) || lon < -180 || lon > 180) {
+      toast({
+        title: "Invalid Longitude",
+        description: "Longitude must be between -180 and 180.",
         variant: "destructive",
       })
       return
@@ -198,8 +249,8 @@ export function ControlRoomBuilder() {
       id: `temp-${Date.now()}`,
       name: newSiteName,
       location: newSiteLocation || null,
-      latitude: newSiteLatitude ? parseFloat(newSiteLatitude) : null,
-      longitude: newSiteLongitude ? parseFloat(newSiteLongitude) : null,
+      latitude: lat,
+      longitude: lon,
       industryType: "other",
       metadata: {},
       active: true,
@@ -220,6 +271,7 @@ export function ControlRoomBuilder() {
     setNewSiteLocation("")
     setNewSiteLatitude("")
     setNewSiteLongitude("")
+    setGeocodeError(null)
 
     toast({
       title: "Site Created",
@@ -426,7 +478,8 @@ export function ControlRoomBuilder() {
             const parentMeter = canvasItems.find(ci => ci.id === item.parentId)
             if (parentMeter && parentMeter.type === "meter") {
               const parentMeterData = parentMeter.data as Meter
-              parentMeterId = parentMeterData.id.startsWith("temp-") ? null : parentMeterData.id
+              // Use the parent meter's ID (temp or real) - the API will map temp IDs to real IDs
+              parentMeterId = parentMeterData.id
             }
           }
 
@@ -508,12 +561,15 @@ export function ControlRoomBuilder() {
       setDeletedMeterIds([])
 
       toast({
-        title: "Canvas Saved",
+        title: "Changes Saved",
         description: "Your control room has been saved successfully.",
       })
 
       // Refresh data
       await fetchPortfolios()
+
+      // Exit edit mode
+      setIsEditMode(false)
     } catch (error) {
       console.error("Error saving canvas:", error)
       toast({
@@ -554,30 +610,21 @@ export function ControlRoomBuilder() {
         <div className="flex gap-2">
           {isEditMode ? (
             <>
+              <Button className="gap-2" onClick={() => setShowNewSiteDialog(true)}>
+                <Plus className="h-4 w-4" />
+                Add New Site
+              </Button>
               <Button
-                variant="outline"
-                className="gap-2"
                 onClick={handleSaveCanvas}
-                disabled={saving || canvasItems.length === 0}
+                disabled={saving}
+                className="gap-2"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                {saving ? "Saving..." : "Save Canvas"}
-              </Button>
-              <Button className="gap-2" onClick={() => setShowNewSiteDialog(true)}>
-                <Plus className="h-4 w-4" />
-                Add New Site
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditMode(false)}
-                className="gap-2"
-              >
-                <X className="h-4 w-4" />
-                Done Editing
+                {saving ? "Saving..." : "Save & Exit"}
               </Button>
             </>
           ) : (
@@ -612,53 +659,80 @@ export function ControlRoomBuilder() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="site-location">Location</Label>
-              <Input
-                id="site-location"
-                placeholder="e.g., Brussels"
-                value={newSiteLocation}
-                onChange={(e) => setNewSiteLocation(e.target.value)}
-              />
+              <Label htmlFor="site-location">Location *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="site-location"
+                  placeholder="e.g., Toronto, ON"
+                  value={newSiteLocation}
+                  onChange={(e) => setNewSiteLocation(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGeocodeLocation}
+                  disabled={geocoding || !newSiteLocation.trim()}
+                >
+                  {geocoding ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Geocode"
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter a location and click Geocode to auto-fill coordinates
+              </p>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="site-latitude">
-                Latitude
-                <span className="text-xs text-muted-foreground ml-1">Optional</span>
+                Latitude <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="site-latitude"
                 type="number"
-                placeholder="e.g., 50.8503"
+                placeholder="e.g., 43.6532"
                 value={newSiteLatitude}
                 onChange={(e) => setNewSiteLatitude(e.target.value)}
                 step="0.0001"
                 min="-90"
                 max="90"
+                required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="site-longitude">
-                Longitude
-                <span className="text-xs text-muted-foreground ml-1">Optional</span>
+                Longitude <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="site-longitude"
                 type="number"
-                placeholder="e.g., 4.3517"
+                placeholder="e.g., -79.3832"
                 value={newSiteLongitude}
                 onChange={(e) => setNewSiteLongitude(e.target.value)}
                 step="0.0001"
                 min="-180"
                 max="180"
+                required
               />
             </div>
           </div>
 
+          {geocodeError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+              <p className="text-sm text-red-700">{geocodeError}</p>
+            </div>
+          )}
+
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowNewSiteDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowNewSiteDialog(false)
+              setGeocodeError(null)
+            }}>
               Cancel
             </Button>
             <Button onClick={handleCreateNewSite}>
@@ -916,10 +990,12 @@ export function ControlRoomBuilder() {
               <p className="text-muted-foreground mb-4">
                 No sites on canvas yet
               </p>
-              <Button onClick={() => setShowNewSiteDialog(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Your First Site
-              </Button>
+              {isEditMode && (
+                <Button onClick={() => setShowNewSiteDialog(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Your First Site
+                </Button>
+              )}
             </div>
           ) : (
             <div
@@ -1329,44 +1405,49 @@ export function ControlRoomBuilder() {
                                 />
                               ) : (
                                 <span
-                                  className="font-semibold text-xs truncate text-blue-900 cursor-pointer hover:text-blue-600"
+                                  className={`font-semibold text-xs truncate text-blue-900 ${isEditMode ? 'cursor-pointer hover:text-blue-600' : ''}`}
                                   onClick={(e) => {
+                                    if (!isEditMode) return
                                     e.stopPropagation()
                                     handleStartRename(siteItem)
                                   }}
-                                  title="Click to rename"
+                                  title={isEditMode ? "Click to rename" : ""}
                                 >
                                   {site.name}
                                 </span>
                               )}
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleRemoveItem(siteItem.id)
-                              }}
-                              className="h-5 w-5 p-0 flex-shrink-0 hover:bg-destructive/10"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+                            {isEditMode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRemoveItem(siteItem.id)
+                                }}
+                                className="h-5 w-5 p-0 flex-shrink-0 hover:bg-destructive/10"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
                           </div>
                           {site.location && (
                             <p className="text-[10px] text-muted-foreground truncate">{site.location}</p>
                           )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenAddMeters(siteItem)
-                            }}
-                            className="w-full gap-1 h-6 text-[10px] border-blue-300 hover:bg-blue-100"
-                          >
-                            <Plus className="h-3 w-3" />
-                            Add Meters
-                          </Button>
+                          {isEditMode && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenAddMeters(siteItem)
+                              }}
+                              className="w-full gap-1 h-6 text-[10px] border-blue-300 hover:bg-blue-100"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add Meters
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -1521,12 +1602,13 @@ export function ControlRoomBuilder() {
                                       />
                                     ) : (
                                       <span
-                                        className="text-[10px] font-medium truncate cursor-pointer hover:text-blue-600"
+                                        className={`text-[10px] font-medium truncate ${isEditMode ? 'cursor-pointer hover:text-blue-600' : ''}`}
                                         onClick={(e) => {
+                                          if (!isEditMode) return
                                           e.stopPropagation()
                                           handleStartRename(meterItem)
                                         }}
-                                        title="Click to rename"
+                                        title={isEditMode ? "Click to rename" : ""}
                                       >
                                         {meterItem.name}
                                       </span>
@@ -1542,6 +1624,16 @@ export function ControlRoomBuilder() {
 
                                           // Extract actual meter ID (remove "meter-" prefix if present)
                                           const actualMeterId = meterItem.id.replace(/^meter-/, '')
+
+                                          // Check if this is a temporary meter (not yet saved)
+                                          if (actualMeterId.startsWith("temp-")) {
+                                            toast({
+                                              title: "Save Required",
+                                              description: "Please save this meter before configuring data connections.",
+                                              variant: "default",
+                                            })
+                                            return
+                                          }
 
                                           // Find meter by ID across all sites
                                           let foundSite: Site | undefined = undefined
@@ -1774,12 +1866,13 @@ export function ControlRoomBuilder() {
                                       />
                                     ) : (
                                       <span
-                                        className="text-[10px] font-medium truncate cursor-pointer hover:text-blue-600"
+                                        className={`text-[10px] font-medium truncate ${isEditMode ? 'cursor-pointer hover:text-blue-600' : ''}`}
                                         onClick={(e) => {
+                                          if (!isEditMode) return
                                           e.stopPropagation()
                                           handleStartRename(meterItem)
                                         }}
-                                        title="Click to rename"
+                                        title={isEditMode ? "Click to rename" : ""}
                                       >
                                         {meterItem.name}
                                       </span>
@@ -1795,6 +1888,16 @@ export function ControlRoomBuilder() {
 
                                           // Extract actual meter ID (remove "meter-" prefix if present)
                                           const actualMeterId = meterItem.id.replace(/^meter-/, '')
+
+                                          // Check if this is a temporary meter (not yet saved)
+                                          if (actualMeterId.startsWith("temp-")) {
+                                            toast({
+                                              title: "Save Required",
+                                              description: "Please save this meter before configuring data connections.",
+                                              variant: "default",
+                                            })
+                                            return
+                                          }
 
                                           // Find meter by ID across all sites
                                           let foundSite: Site | undefined = undefined

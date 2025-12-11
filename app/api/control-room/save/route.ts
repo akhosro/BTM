@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { sites, meters, energySources } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getCurrentUserId } from "@/lib/session";
+import { validateAndGetGridZone } from "@/lib/utils/geocoding";
 
 export async function POST(request: Request) {
   try {
@@ -15,9 +17,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Implement proper authentication and get real user ID
-    // For now, using a default user ID for MVP
-    const userId = "default-user-id";
+    // Get authenticated user ID from session
+    const userId = await getCurrentUserId();
 
     const savedSites: any[] = [];
     const savedMeters: any[] = [];
@@ -70,15 +71,30 @@ export async function POST(request: Request) {
           .returning();
         savedSite = updatedSite;
       } else {
-        // Create new site
+        // Create new site - validate coordinates and get grid zone
+        if (!siteData.latitude || !siteData.longitude) {
+          throw new Error(`Site "${siteData.name}" is missing required coordinates`);
+        }
+
+        // Auto-detect grid zone from coordinates
+        let gridZone = siteData.gridZone;
+        if (!gridZone) {
+          const validation = validateAndGetGridZone(siteData.latitude, siteData.longitude);
+          if (!validation.success) {
+            throw new Error(`Site "${siteData.name}": ${validation.error || "Invalid coordinates"}`);
+          }
+          gridZone = validation.gridZone;
+        }
+
         const [newSite] = await db
           .insert(sites)
           .values({
             userId,
             name: siteData.name,
-            location: siteData.location,
+            location: siteData.location || null,
             latitude: siteData.latitude,
             longitude: siteData.longitude,
+            gridZone: gridZone!,
             industryType: siteData.industryType || "other",
             metadata: siteData.metadata || {},
             active: siteData.active ?? true,
@@ -193,6 +209,15 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Error saving canvas:", error);
+
+    // Handle unauthorized error
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to save canvas", message: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }

@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1765125216209,
+      "tag": "0000_spooky_invaders",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1765335330549,
+      "tag": "0001_purple_prism",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765421186700,
+      "tag": "0002_same_star_brand",
+      "breakpoints": true
+    }
+  ]
+}

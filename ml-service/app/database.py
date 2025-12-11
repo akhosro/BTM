@@ -43,8 +43,8 @@ def fetch_measurements(site_id: str, start_date: str, end_date: str, meter_categ
             cursor.execute(query, (site_id, meter_category, start_date, end_date))
             return cursor.fetchall()
 
-def fetch_carbon_intensity(start_date: str, end_date: str, region: str = "Ontario"):
-    """Fetch grid carbon intensity forecasts"""
+def fetch_carbon_intensity(start_date: str, end_date: str, grid_zone: str = "CA-ON"):
+    """Fetch grid carbon intensity forecasts using grid zone (e.g., CA-ON, US-CAL-CISO)"""
     query = """
         SELECT
             timestamp,
@@ -59,7 +59,7 @@ def fetch_carbon_intensity(start_date: str, end_date: str, region: str = "Ontari
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute(query, (region, start_date, end_date))
+            cursor.execute(query, (grid_zone, start_date, end_date))
             return cursor.fetchall()
 
 def fetch_electricity_pricing(site_id: str, start_date: str, end_date: str):
@@ -225,11 +225,12 @@ def delete_old_weather_forecasts(site_id: str, retention_days: int = 7):
             return cursor.rowcount
 
 def get_site_coordinates(site_id: str):
-    """Get latitude, longitude, and solar capacity for a site"""
+    """Get latitude, longitude, grid zone, and solar capacity for a site"""
     query = """
         SELECT
             s.latitude,
             s.longitude,
+            s.grid_zone,
             s.location,
             s.name,
             COALESCE(

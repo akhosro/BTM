@@ -129,28 +129,34 @@ async def generate_recommendations(request: RecommendationRequest):
                     except Exception as e:
                         print(f"Error saving weather forecast: {e}")
         else:
-            print(f"⚠️ Site {request.site_id} has no coordinates - skipping weather forecast")
+            print(f"[WARNING] Site {request.site_id} has no coordinates - skipping weather forecast")
 
         # Fetch carbon intensity forecast
         # Try to use real-time API first, fall back to database
         carbon_forecast_data = []
-        try:
-            from app.services.carbon_intensity_client import CarbonIntensityClient
-            carbon_client = CarbonIntensityClient()
 
-            # Determine region based on site location
-            region_code = "CA-ON"  # Default to Ontario
+        # Get grid zone from site info - this is now the source of truth
+        grid_zone = site_info.get('grid_zone', 'CA-ON') if site_info else 'CA-ON'
+
+        if not grid_zone:
+            # Fallback: determine grid zone from location text if not set
+            grid_zone = "CA-ON"  # Default to Ontario
             if site_info and site_info.get('location'):
                 location = site_info.get('location', '').lower()
                 # Map locations to Electricity Maps zone codes
                 if any(indicator in location for indicator in ['california', 'ca', 'san francisco', 'los angeles']):
-                    region_code = "US-CAL-CISO"
+                    grid_zone = "US-CAL-CISO"
                 elif 'ontario' in location or 'toronto' in location or 'ottawa' in location:
-                    region_code = "CA-ON"
-                # Add more regions as needed
+                    grid_zone = "CA-ON"
 
-            # Fetch real-time carbon intensity
-            carbon_forecast_api = carbon_client.get_carbon_intensity(zone=region_code, hours_forecast=request.forecast_hours)
+        print(f"[INFO] Using grid zone: {grid_zone}")
+
+        try:
+            from app.services.carbon_intensity_client import CarbonIntensityClient
+            carbon_client = CarbonIntensityClient()
+
+            # Fetch real-time carbon intensity using grid zone
+            carbon_forecast_api = carbon_client.get_carbon_intensity(zone=grid_zone, hours_forecast=request.forecast_hours)
 
             # Convert to format expected by recommendation engine
             carbon_forecast_data = [
@@ -161,32 +167,32 @@ async def generate_recommendations(request: RecommendationRequest):
                 for cf in carbon_forecast_api
             ]
 
-            print(f"✅ Fetched {len(carbon_forecast_data)} carbon intensity records from Electricity Maps")
+            print(f"[OK] Fetched {len(carbon_forecast_data)} carbon intensity records from Electricity Maps for {grid_zone}")
         except Exception as e:
-            print(f"⚠️  Could not fetch real-time carbon intensity: {e}")
-            print(f"Falling back to database carbon intensity")
+            print(f"[WARNING] Could not fetch real-time carbon intensity: {e}")
+            print(f"Falling back to database carbon intensity for {grid_zone}")
 
-            # Fall back to database
+            # Fall back to database using grid zone
             carbon_forecast_db = fetch_carbon_intensity(
                 start_date=end_date.isoformat(),
                 end_date=forecast_end.isoformat(),
-                region="Ontario"
+                grid_zone=grid_zone
             )
             carbon_forecast_data = carbon_forecast_db if carbon_forecast_db else []
 
         carbon_forecast = carbon_forecast_data
 
         # Fetch pricing data
-        print(f"📊 Fetching pricing data for site {request.site_id}")
+        print(f"[INFO] Fetching pricing data for site {request.site_id}")
         try:
             pricing_data = fetch_electricity_pricing(
                 site_id=request.site_id,
                 start_date=start_date.date().isoformat(),
                 end_date=end_date.date().isoformat()
             )
-            print(f"✅ Pricing data fetched: {pricing_data}")
+            print(f"[OK] Pricing data fetched: {pricing_data}")
         except Exception as e:
-            print(f"❌ Error fetching pricing: {e}")
+            print(f"[ERROR] Error fetching pricing: {e}")
             import traceback
             traceback.print_exc()
             pricing_data = None
@@ -202,13 +208,13 @@ async def generate_recommendations(request: RecommendationRequest):
                     caiso_client = CAISOClient()
                     # Get hourly average real-time pricing for next 24 hours
                     caiso_pricing = caiso_client.get_hourly_average(hours=48)
-                    print(f"✅ Fetched {len(caiso_pricing)} CAISO real-time pricing records")
+                    print(f"[OK] Fetched {len(caiso_pricing)} CAISO real-time pricing records")
                 except Exception as e:
-                    print(f"⚠️  Could not fetch CAISO pricing: {e}")
+                    print(f"[WARNING] Could not fetch CAISO pricing: {e}")
 
         # Generate recommendations
         engine = RecommendationEngine()
-        print(f"📊 Generating recommendations with:")
+        print(f"[INFO] Generating recommendations with:")
         print(f"   Consumption forecast: {len(consumption_forecast)} records")
         print(f"   Carbon forecast: {len(carbon_forecast)} records")
         print(f"   Pricing data: {pricing_data}")
@@ -220,7 +226,7 @@ async def generate_recommendations(request: RecommendationRequest):
             pricing_data=pricing_data or {},
             caiso_pricing=caiso_pricing if caiso_pricing else None
         )
-        print(f"✅ Generated {len(recommendations)} recommendations")
+        print(f"[OK] Generated {len(recommendations)} recommendations")
 
         # Save recommendations to database
         saved_count = 0
@@ -256,6 +262,9 @@ async def generate_recommendations(request: RecommendationRequest):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[ERROR] ERROR in generate_recommendations: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/weather-api-usage")

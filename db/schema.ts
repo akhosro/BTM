@@ -63,9 +63,10 @@ export const sites = pgTable("sites", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(), // Each site belongs to a user
   name: text("name").notNull(),
-  location: text("location"),
-  latitude: doublePrecision("latitude"), // Required for weather forecasts
-  longitude: doublePrecision("longitude"), // Required for weather forecasts
+  location: text("location"), // Human-friendly display text (e.g., "Toronto, ON - Downtown")
+  latitude: doublePrecision("latitude").notNull(), // Required for weather forecasts and API calls
+  longitude: doublePrecision("longitude").notNull(), // Required for weather forecasts and API calls
+  gridZone: text("grid_zone").notNull(), // Electricity Maps zone code (e.g., CA-ON, US-CAL-CISO) - auto-detected from coordinates
   industryType: industryTypeEnum("industry_type").default("other"),
   description: text("description"),
   metadata: jsonb("metadata").default({}),

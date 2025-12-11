@@ -14,7 +14,7 @@ import { getCarbonIntensityForecast } from "@/lib/external-data/carbon-intensity
  * Fetch carbon intensity forecast using real API or fallback
  */
 async function fetchCarbonIntensityForecast(
-  region: string,
+  gridZone: string,
   latitude: number,
   longitude: number
 ) {
@@ -22,9 +22,9 @@ async function fetchCarbonIntensityForecast(
     // Use real WattTime API if credentials configured
     const forecasts = await getCarbonIntensityForecast(latitude, longitude, 24);
 
-    // Convert to database format
+    // Convert to database format - use grid zone instead of region text
     return forecasts.map((forecast) => ({
-      region: forecast.region,
+      region: gridZone, // Use standardized grid zone (e.g., CA-ON, US-CAL-CISO)
       gridOperator: null, // WattTime doesn't provide this directly
       timestamp: forecast.timestamp,
       carbonIntensity: forecast.carbonIntensity,
@@ -36,7 +36,7 @@ async function fetchCarbonIntensityForecast(
       metadata: {},
     }));
   } catch (error) {
-    console.warn(`   ⚠️  WattTime API unavailable for ${region}, using fallback model`);
+    console.warn(`   ⚠️  WattTime API unavailable for ${gridZone}, using fallback model`);
 
     // Fallback: Generate realistic mock forecasts
     const now = new Date();
@@ -65,7 +65,7 @@ async function fetchCarbonIntensityForecast(
       }
 
       fallbackForecasts.push({
-        region,
+        region: gridZone, // Use standardized grid zone
         gridOperator: null,
         timestamp,
         carbonIntensity: Math.round(intensity),
@@ -95,17 +95,22 @@ export async function syncCarbonIntensity() {
 
     console.log(`   Found ${activeSites.length} active sites`);
 
-    // Sync carbon intensity for each site with coordinates
+    // Sync carbon intensity for each site with coordinates and grid zone
     for (const site of activeSites) {
-      // Skip sites without coordinates
+      // Skip sites without coordinates or grid zone
       if (!site.latitude || !site.longitude) {
         console.log(`   ⚠️  Skipping ${site.name} - no coordinates configured`);
         continue;
       }
 
+      if (!site.gridZone) {
+        console.log(`   ⚠️  Skipping ${site.name} - no grid zone configured`);
+        continue;
+      }
+
       try {
         const forecasts = await fetchCarbonIntensityForecast(
-          site.location || "Unknown",
+          site.gridZone,
           site.latitude,
           site.longitude
         );
