@@ -224,6 +224,32 @@ def delete_old_weather_forecasts(site_id: str, retention_days: int = 7):
             conn.commit()
             return cursor.rowcount
 
+def fetch_weather_forecasts(site_id: str, start_date: str, end_date: str):
+    """Fetch historical weather forecasts for ML training"""
+    query = """
+        SELECT
+            forecast_timestamp as timestamp,
+            temperature,
+            humidity,
+            cloud_cover,
+            wind_speed,
+            precipitation,
+            precipitation_probability,
+            solar_irradiance,
+            solar_generation
+        FROM weather_forecasts
+        WHERE site_id = %s
+          AND forecast_timestamp >= %s
+          AND forecast_timestamp <= %s
+        ORDER BY forecast_timestamp ASC
+    """
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (site_id, start_date, end_date))
+            results = cursor.fetchall()
+            return results if results else []
+
 def get_site_coordinates(site_id: str):
     """Get latitude, longitude, grid zone, and solar capacity for a site"""
     query = """

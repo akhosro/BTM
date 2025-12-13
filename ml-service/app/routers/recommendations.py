@@ -55,10 +55,45 @@ async def generate_recommendations(request: RecommendationRequest):
                 detail=f"Insufficient historical data for site {request.site_id}"
             )
 
-        # Generate consumption forecast
+        # Fetch historical weather data for better forecast accuracy
+        historical_weather = None
+        future_weather_data = None
+
+        # Get site coordinates
+        site_info = get_site_coordinates(site_id=request.site_id)
+
+        if site_info and site_info['latitude'] and site_info['longitude']:
+            lat, lon = float(site_info['latitude']), float(site_info['longitude'])
+            solar_capacity = float(site_info.get('solar_capacity_kw', 100.0))
+
+            weather_service = WeatherService()
+
+            # Fetch future weather forecast (for prediction period)
+            future_weather_data = weather_service.get_weather_forecast(lat, lon, solar_capacity)
+
+            # Fetch historical weather from database (weather_forecasts table)
+            try:
+                from app.database import fetch_weather_forecasts
+                historical_weather = fetch_weather_forecasts(
+                    site_id=request.site_id,
+                    start_date=start_date.isoformat(),
+                    end_date=end_date.isoformat()
+                )
+                if historical_weather and len(historical_weather) > 0:
+                    print(f"✓ Using {len(historical_weather)} historical weather records for ML training")
+                else:
+                    print(f"Note: No historical weather data available for training")
+            except Exception as e:
+                print(f"Note: Could not fetch historical weather: {e}")
+                historical_weather = None
+
+        # Generate consumption forecast with weather-enhanced Prophet model
         forecaster = ConsumptionForecaster()
-        forecaster.train(measurements)
-        consumption_forecast = forecaster.get_forecast_dict(hours_ahead=request.forecast_hours)
+        forecaster.train(measurements, weather_data=historical_weather)
+        consumption_forecast = forecaster.get_forecast_dict(
+            hours_ahead=request.forecast_hours,
+            future_weather=future_weather_data
+        )
 
         # Delete old forecasts (retention policy: 30 days)
         delete_old_forecasts(site_id=request.site_id, retention_days=30)
@@ -84,19 +119,12 @@ async def generate_recommendations(request: RecommendationRequest):
             except Exception as e:
                 print(f"Error saving forecast: {e}")
 
-        # Fetch and save weather forecasts
-        # Get site coordinates from database
-        site_info = get_site_coordinates(site_id=request.site_id)
-
+        # Save weather forecasts (already fetched above for ML training)
         weather_forecasts_saved = 0
-        if site_info and site_info['latitude'] and site_info['longitude']:
+        if future_weather_data:
+            weather_forecasts = future_weather_data
             lat, lon = float(site_info['latitude']), float(site_info['longitude'])
-            solar_capacity = float(site_info.get('solar_capacity_kw', 100.0))
             print(f"Using coordinates for {site_info['name']}: {lat}, {lon}")
-            print(f"Solar capacity: {solar_capacity} kW")
-
-            weather_service = WeatherService()
-            weather_forecasts = weather_service.get_weather_forecast(lat, lon, solar_capacity)
 
             # Delete old weather forecasts (7-day retention)
             delete_old_weather_forecasts(site_id=request.site_id, retention_days=7)
