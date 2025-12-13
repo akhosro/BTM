@@ -1,20 +1,28 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-// Create PostgreSQL connection
-const connectionString = process.env.DATABASE_URL;
+console.log('[DB] Connecting to:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':****@'));
 
-// For query purposes
-const queryClient = postgres(connectionString);
-export const db = drizzle(queryClient, {
+// Create PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Log connection events
+pool.on('connect', () => {
+  console.log('[DB] Pool connected to database');
+});
+
+pool.on('error', (err) => {
+  console.error('[DB] Unexpected pool error:', err);
+});
+
+export const db = drizzle(pool, {
   schema,
   logger: process.env.NODE_ENV === "development",
 });
-
-// For migrations
-export const migrationClient = postgres(connectionString, { max: 1 });
