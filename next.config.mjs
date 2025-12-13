@@ -6,6 +6,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Fix for Vercel deployment: Don't bundle these packages
+  serverComponentsExternalPackages: ['pg', 'pg-pool'],
+  experimental: {
+    // Instrument only on Node.js runtime
+    instrumentationHook: true,
+  },
 }
 
 export default nextConfig
