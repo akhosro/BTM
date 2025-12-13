@@ -37,3 +37,18 @@ PRODUCTION_SECRETS.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+
+# Test/debug scripts (keep repo clean)
+check-*.mjs
+check-*.ts
+test-*.mjs
+register-*.py
