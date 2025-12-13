@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import List, Dict
+import numpy as np
 
 from app.database import (
     fetch_measurements,
@@ -240,6 +241,12 @@ async def generate_recommendations(request: RecommendationRequest):
                 except Exception as e:
                     print(f"[WARNING] Could not fetch CAISO pricing: {e}")
 
+        # Calculate historical baseline for efficiency detection
+        historical_baseline = None
+        if len(measurements) >= 48:
+            # Use the average of historical measurements as baseline
+            historical_baseline = np.mean([m['value'] for m in measurements])
+
         # Generate recommendations
         engine = RecommendationEngine()
         print(f"[INFO] Generating recommendations with:")
@@ -247,12 +254,17 @@ async def generate_recommendations(request: RecommendationRequest):
         print(f"   Carbon forecast: {len(carbon_forecast)} records")
         print(f"   Pricing data: {pricing_data}")
         print(f"   CAISO pricing: {len(caiso_pricing) if caiso_pricing else 0} records")
+        print(f"   Weather forecast: {len(future_weather_data) if future_weather_data else 0} records")
+        print(f"   Historical baseline: {historical_baseline:.2f} kWh" if historical_baseline else "   Historical baseline: None")
 
         recommendations = engine.generate_recommendations(
             consumption_forecast=consumption_forecast,
             carbon_forecast=carbon_forecast,
             pricing_data=pricing_data or {},
-            caiso_pricing=caiso_pricing if caiso_pricing else None
+            caiso_pricing=caiso_pricing if caiso_pricing else None,
+            weather_forecast=future_weather_data,
+            historical_baseline=historical_baseline,
+            ev_fleet_size=0  # Could be enhanced to detect EVs from meters
         )
         print(f"[OK] Generated {len(recommendations)} recommendations")
 
