@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { sites, recommendations } from "@/db/schema";
-import { eq, and, gte, lte, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/session";
 
 export async function GET(request: Request) {
@@ -48,7 +48,9 @@ export async function GET(request: Request) {
         break;
       case "7days":
         startTime = new Date(now);
+        startTime.setHours(0, 0, 0, 0);
         endTime = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        endTime.setHours(23, 59, 59, 999);
         break;
       default: // "today"
         startTime = new Date(now);
@@ -68,35 +70,34 @@ export async function GET(request: Request) {
     }
 
     // Add time range filter if recommendedTimeStart is available
-    // TEMPORARILY DISABLED for debugging
-    // if (startTime && endTime) {
-    //   console.log(`[DEBUG] Filtering recommendations for timeRange: ${timeRange}`);
-    //   console.log(`[DEBUG] Start time: ${startTime.toISOString()} (${startTime})`);
-    //   console.log(`[DEBUG] End time: ${endTime.toISOString()} (${endTime})`);
+    if (startTime && endTime) {
+      console.log(`[DEBUG] Filtering recommendations for timeRange: ${timeRange}`);
+      console.log(`[DEBUG] Start time: ${startTime.toISOString()} (${startTime})`);
+      console.log(`[DEBUG] End time: ${endTime.toISOString()} (${endTime})`);
 
-    //   // Format dates as strings without timezone for comparison with timestamp columns
-    //   const formatTimestamp = (date: Date) => {
-    //     const year = date.getFullYear();
-    //     const month = String(date.getMonth() + 1).padStart(2, '0');
-    //     const day = String(date.getDate()).padStart(2, '0');
-    //     const hours = String(date.getHours()).padStart(2, '0');
-    //     const minutes = String(date.getMinutes()).padStart(2, '0');
-    //     const seconds = String(date.getSeconds()).padStart(2, '0');
-    //     const ms = String(date.getMilliseconds()).padStart(3, '0');
-    //     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
-    //   };
+      // Format dates as strings without timezone for comparison with timestamp columns
+      const formatTimestamp = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const ms = String(date.getMilliseconds()).padStart(3, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+      };
 
-    //   const startTimeStr = formatTimestamp(startTime);
-    //   const endTimeStr = formatTimestamp(endTime);
-    //   console.log(`[DEBUG] Formatted start: ${startTimeStr}`);
-    //   console.log(`[DEBUG] Formatted end: ${endTimeStr}`);
+      const startTimeStr = formatTimestamp(startTime);
+      const endTimeStr = formatTimestamp(endTime);
+      console.log(`[DEBUG] Formatted start: ${startTimeStr}`);
+      console.log(`[DEBUG] Formatted end: ${endTimeStr}`);
 
-    //   // Use raw SQL to compare timestamps without timezone conversion
-    //   conditions.push(
-    //     sql`recommended_time_start >= ${startTimeStr}::timestamp`,
-    //     sql`recommended_time_start <= ${endTimeStr}::timestamp`
-    //   );
-    // }
+      // Use raw SQL to compare timestamps without timezone conversion
+      conditions.push(
+        sql`recommended_time_start >= ${startTimeStr}::timestamp`,
+        sql`recommended_time_start <= ${endTimeStr}::timestamp`
+      );
+    }
 
     // Fetch recommendations
     const recs = await db

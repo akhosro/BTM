@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { sites, meters, measurements, electricityPricing, gridCarbonIntensity, recommendations } from "@/db/schema";
-import { desc, eq, gte, lte, and } from "drizzle-orm";
+import { sites, meters, measurements, electricityPricing, gridCarbonIntensity, recommendations, consumptionForecasts } from "@/db/schema";
+import { desc, eq, gte, lte, and, sql } from "drizzle-orm";
 import { getCurrentUserId } from "@/lib/session";
 
 export async function GET(request: Request) {
@@ -41,12 +41,16 @@ export async function GET(request: Request) {
         endTime.setHours(23, 59, 59, 999);
         break;
       case "7days":
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        startTime = new Date(now);
+        startTime.setHours(0, 0, 0, 0);
+        endTime = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        endTime.setHours(23, 59, 59, 999);
         break;
       default: // "today"
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        endTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        startTime = new Date(now);
+        startTime.setHours(0, 0, 0, 0);
+        endTime = new Date(now);
+        endTime.setHours(23, 59, 59, 999);
     }
 
     // Get consumption forecast (using selected time range)
@@ -213,81 +217,127 @@ export async function GET(request: Request) {
       ? ((energySpendForecast - historicalSpend) / historicalSpend * 100).toFixed(0)
       : "0";
 
-    // Get carbon intensity forecast - use site location if available
-    const region = selectedSite.location || "Ontario";
-    const carbonForecast = await db
-      .select()
-      .from(gridCarbonIntensity)
-      .where(
-        and(
-          eq(gridCarbonIntensity.region, region),
-          gte(gridCarbonIntensity.timestamp, now),
-          eq(gridCarbonIntensity.forecastType, "forecast")
+    // Get peak demand forecast - maximum predicted consumption for selected time period
+    let peakDemand = 0;
+    let avgDemand = 0;
+
+    if (isPortfolioView) {
+      // Portfolio view: get peak across all sites
+      let maxPeak = 0;
+      let totalAvg = 0;
+      let totalForecasts = 0;
+
+      for (const site of userSites) {
+        const forecasts = await db
+          .select()
+          .from(consumptionForecasts)
+          .where(
+            and(
+              eq(consumptionForecasts.siteId, site.id),
+              gte(consumptionForecasts.forecastTimestamp, startTime),
+              lte(consumptionForecasts.forecastTimestamp, endTime)
+            )
+          )
+          .orderBy(desc(consumptionForecasts.predictedValue));
+
+        if (forecasts.length > 0) {
+          // Site's peak is the max predicted value
+          const sitePeak = forecasts[0].predictedValue;
+          maxPeak += sitePeak; // Sum peaks across sites for portfolio peak
+
+          // Calculate average for this site
+          const siteAvg = forecasts.reduce((sum, f) => sum + f.predictedValue, 0) / forecasts.length;
+          totalAvg += siteAvg;
+          totalForecasts += forecasts.length;
+        }
+      }
+
+      peakDemand = maxPeak;
+      avgDemand = totalForecasts > 0 ? totalAvg / userSites.length : 0;
+    } else {
+      // Single site view
+      const forecasts = await db
+        .select()
+        .from(consumptionForecasts)
+        .where(
+          and(
+            eq(consumptionForecasts.siteId, selectedSite.id),
+            gte(consumptionForecasts.forecastTimestamp, startTime),
+            lte(consumptionForecasts.forecastTimestamp, endTime)
+          )
         )
-      )
-      .orderBy(gridCarbonIntensity.timestamp)
-      .limit(24);
+        .orderBy(desc(consumptionForecasts.predictedValue));
 
-    const avgCarbonIntensity = carbonForecast.length > 0
-      ? carbonForecast.reduce((sum, c) => sum + c.carbonIntensity, 0) / carbonForecast.length
-      : 0;
-
-    // Get current carbon intensity (most recent within last hour)
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const currentCarbon = await db
-      .select()
-      .from(gridCarbonIntensity)
-      .where(
-        and(
-          eq(gridCarbonIntensity.region, region),
-          gte(gridCarbonIntensity.timestamp, oneHourAgo),
-          lte(gridCarbonIntensity.timestamp, now)
-        )
-      )
-      .orderBy(desc(gridCarbonIntensity.timestamp))
-      .limit(1);
-
-    const currentCarbonIntensity = currentCarbon.length > 0 ? currentCarbon[0].carbonIntensity : avgCarbonIntensity;
-
-    // Determine grid status (clean vs dirty)
-    // Using typical baseline of 400 gCO2/kWh (US average)
-    const baselineIntensity = 400;
-    let gridStatus = "moderate";
-    let gridStatusColor = "yellow";
-    if (currentCarbonIntensity < baselineIntensity * 0.7) {
-      gridStatus = "clean";
-      gridStatusColor = "green";
-    } else if (currentCarbonIntensity > baselineIntensity * 1.2) {
-      gridStatus = "dirty";
-      gridStatusColor = "red";
+      if (forecasts.length > 0) {
+        peakDemand = forecasts[0].predictedValue;
+        avgDemand = forecasts.reduce((sum, f) => sum + f.predictedValue, 0) / forecasts.length;
+      }
     }
 
-    // Calculate clean energy percentage
-    const cleanEnergyPercent = Math.max(0, Math.min(100, ((baselineIntensity - currentCarbonIntensity) / baselineIntensity) * 100));
+    // Historical peak demand for trend calculation
+    let historicalPeakDemand = 0;
 
-    // Historical carbon for trend
-    const historicalCarbon = await db
-      .select()
-      .from(gridCarbonIntensity)
-      .where(
-        and(
-          eq(gridCarbonIntensity.region, region),
-          gte(gridCarbonIntensity.timestamp, historicalStart),
-          lte(gridCarbonIntensity.timestamp, historicalEnd)
+    if (isPortfolioView) {
+      let historicalMaxPeak = 0;
+
+      for (const site of userSites) {
+        const historicalForecasts = await db
+          .select()
+          .from(consumptionForecasts)
+          .where(
+            and(
+              eq(consumptionForecasts.siteId, site.id),
+              gte(consumptionForecasts.forecastTimestamp, historicalStart),
+              lte(consumptionForecasts.forecastTimestamp, historicalEnd)
+            )
+          )
+          .orderBy(desc(consumptionForecasts.predictedValue))
+          .limit(1);
+
+        if (historicalForecasts.length > 0) {
+          historicalMaxPeak += historicalForecasts[0].predictedValue;
+        }
+      }
+
+      historicalPeakDemand = historicalMaxPeak;
+    } else {
+      const historicalForecasts = await db
+        .select()
+        .from(consumptionForecasts)
+        .where(
+          and(
+            eq(consumptionForecasts.siteId, selectedSite.id),
+            gte(consumptionForecasts.forecastTimestamp, historicalStart),
+            lte(consumptionForecasts.forecastTimestamp, historicalEnd)
+          )
         )
-      )
-      .orderBy(gridCarbonIntensity.timestamp)
-      .limit(24);
+        .orderBy(desc(consumptionForecasts.predictedValue))
+        .limit(1);
 
-    const historicalAvgCarbon = historicalCarbon.length > 0
-      ? historicalCarbon.reduce((sum, c) => sum + c.carbonIntensity, 0) / historicalCarbon.length
-      : 0;
+      historicalPeakDemand = historicalForecasts.length > 0 ? historicalForecasts[0].predictedValue : 0;
+    }
 
-    const carbonTrend = currentCarbonIntensity > 0 && historicalAvgCarbon > 0
-      ? ((currentCarbonIntensity - historicalAvgCarbon) / historicalAvgCarbon * 100).toFixed(0)
+    const peakDemandTrend = peakDemand > 0 && historicalPeakDemand > 0
+      ? ((peakDemand - historicalPeakDemand) / historicalPeakDemand * 100).toFixed(0)
       : "0";
 
     // Get actual recommendations to calculate optimization opportunity and savings
+    // Use same time window as recommendations API for consistency
+    // Format dates as strings without timezone for comparison with timestamp columns (same as recommendations API)
+    const formatTimestamp = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      const ms = String(date.getMilliseconds()).padStart(3, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+    };
+
+    const startTimeStr = formatTimestamp(startTime);
+    const endTimeStr = formatTimestamp(endTime);
+
     let pendingRecs;
     if (isPortfolioView) {
       const siteIds = userSites.map(s => s.id);
@@ -297,7 +347,8 @@ export async function GET(request: Request) {
         .where(
           and(
             eq(recommendations.status, "pending"),
-            gte(recommendations.recommendedTimeStart, now)
+            sql`recommended_time_start >= ${startTimeStr}::timestamp`,
+            sql`recommended_time_start <= ${endTimeStr}::timestamp`
           )
         );
       // Filter to only user's sites (since we can't use inArray with multiple conditions easily)
@@ -310,14 +361,24 @@ export async function GET(request: Request) {
           and(
             eq(recommendations.siteId, selectedSite.id),
             eq(recommendations.status, "pending"),
-            gte(recommendations.recommendedTimeStart, now)
+            sql`recommended_time_start >= ${startTimeStr}::timestamp`,
+            sql`recommended_time_start <= ${endTimeStr}::timestamp`
           )
         );
     }
 
     // Sum up all potential cost savings and CO2 reduction from recommendations
+    console.log(`[STATS] Time range: ${timeRange}`);
+    console.log(`[STATS] Filtering: ${startTimeStr} to ${endTimeStr}`);
+    console.log(`[STATS] Found ${pendingRecs.length} pending recommendations`);
+    console.log(`[STATS] Recommendations:`, pendingRecs.map(r => ({
+      id: r.id,
+      costSavings: r.costSavings,
+      recommendedTimeStart: r.recommendedTimeStart
+    })));
     const totalPotentialSavings = pendingRecs.reduce((sum, rec) => sum + (rec.costSavings || 0), 0);
     const totalCO2Reduction = pendingRecs.reduce((sum, rec) => sum + (rec.co2Reduction || 0), 0);
+    console.log(`[STATS] Total potential savings: $${totalPotentialSavings}`);
 
     // Calculate optimization opportunity from production vs consumption
     let totalProduction = 0;
@@ -471,15 +532,12 @@ export async function GET(request: Request) {
           trend: `${parseFloat(spendTrend) > 0 ? '+' : ''}${spendTrend}%`,
           description: "Next 24h",
         },
-        carbonIntensity: {
-          value: currentCarbonIntensity > 0 ? currentCarbonIntensity.toFixed(0) : "0",
-          trend: `${parseFloat(carbonTrend) > 0 ? '+' : ''}${carbonTrend}%`,
-          description: "Current grid intensity",
-          unit: "g/kWh",
-          status: gridStatus,
-          statusColor: gridStatusColor,
-          cleanEnergyPercent: cleanEnergyPercent.toFixed(0),
-          forecast24hAvg: avgCarbonIntensity.toFixed(0),
+        peakDemand: {
+          value: peakDemand > 0 ? peakDemand.toFixed(0) : "0",
+          trend: `${parseFloat(peakDemandTrend) > 0 ? '+' : ''}${peakDemandTrend}%`,
+          description: "Maximum predicted usage",
+          unit: "kWh",
+          avgDemand: avgDemand.toFixed(0),
         },
         optimizationOpportunity: {
           value: optimizationOpportunity,

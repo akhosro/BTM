@@ -27,8 +27,8 @@ export function LandingContent() {
   const router = useRouter()
   const [showLogin, setShowLogin] = useState(false)
   const [showSignup, setShowSignup] = useState(false)
-  const [email, setEmail] = useState("demo@enalysis.com")
-  const [password, setPassword] = useState("demo123")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [company, setCompany] = useState("")
@@ -111,8 +111,8 @@ export function LandingContent() {
     setShowSignup(false)
     setShowLogin(true)
     setError("")
-    setEmail("demo@enalysis.com")
-    setPassword("demo123")
+    setEmail("")
+    setPassword("")
   }
 
   return (
@@ -213,28 +213,6 @@ export function LandingContent() {
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}
-                  </Button>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <Separator />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
-                        Or continue with
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setEmail("demo@enalysis.com")
-                      setPassword("demo123")
-                    }}
-                    disabled={isLoading}
-                  >
-                    Use Demo Account
                   </Button>
                   <p className="text-center text-sm text-muted-foreground">
                     Don't have an account?{" "}

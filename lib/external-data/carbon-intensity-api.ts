@@ -35,7 +35,7 @@ export interface GridOptimizationSignal {
  * Sign up: https://www.watttime.org/api-documentation
  */
 export class WattTimeClient {
-  private baseUrl = "https://api2.watttime.org/v2";
+  private baseUrl = "https://api.watttime.org/v3";
   private username: string;
   private password: string;
   private token?: string;
@@ -47,35 +47,40 @@ export class WattTimeClient {
   }
 
   /**
-   * Authenticate with WattTime API
+   * Authenticate with WattTime API v3
+   * Returns Bearer token that expires after 30 minutes
    */
   private async authenticate(): Promise<string> {
-    // Check if token is still valid
+    if (!this.username || !this.password) {
+      throw new Error("WattTime credentials not configured");
+    }
+
+    // Check if we have a valid token
     if (this.token && this.tokenExpiry && this.tokenExpiry > new Date()) {
       return this.token;
     }
 
-    if (!this.username || !this.password) {
-      throw new Error("WattTime credentials not configured");
-    }
+    // Get new token via /login endpoint using Basic auth
+    const auth = Buffer.from(`${this.username}:${this.password}`).toString("base64");
 
     try {
       const response = await fetch(`${this.baseUrl}/login`, {
         method: "GET",
         headers: {
-          Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString("base64")}`,
+          Authorization: `Basic ${auth}`,
         },
       });
 
       if (!response.ok) {
-        throw new Error(`WattTime authentication failed: ${response.status}`);
+        const text = await response.text();
+        console.error(`WattTime login failed (${response.status}):`, text);
+        throw new Error(`WattTime login failed: ${response.status}`);
       }
 
       const data = await response.json();
       this.token = data.token;
-
-      // Tokens expire after 30 minutes
-      this.tokenExpiry = new Date(Date.now() + 30 * 60 * 1000);
+      // Token expires after 30 minutes
+      this.tokenExpiry = new Date(Date.now() + 29 * 60 * 1000);
 
       return this.token;
     } catch (error) {
@@ -86,32 +91,36 @@ export class WattTimeClient {
 
   /**
    * Get balancing authority region for coordinates
+   * This endpoint is free for all users
    */
   async getRegion(latitude: number, longitude: number): Promise<string> {
     try {
-      const token = await this.authenticate();
+      // region-from-loc uses Basic auth, not Bearer token
+      const auth = Buffer.from(`${this.username}:${this.password}`).toString("base64");
 
       const params = new URLSearchParams({
         latitude: latitude.toString(),
         longitude: longitude.toString(),
       });
 
-      const response = await fetch(`${this.baseUrl}/ba-from-loc?${params}`, {
+      const response = await fetch(`${this.baseUrl}/region-from-loc?${params}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Basic ${auth}`,
         },
       });
 
       if (!response.ok) {
+        const text = await response.text();
+        console.error(`WattTime region lookup failed (${response.status}):`, text);
         throw new Error(`WattTime region lookup failed: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.abbrev; // Balancing authority abbreviation
+      return data.region; // v3 uses 'region' instead of 'abbrev'
     } catch (error) {
       console.error("WattTime region lookup error:", error);
       // Fallback to generic US region
-      return "US";
+      return "CAISO_NORTH";
     }
   }
 
@@ -130,13 +139,15 @@ export class WattTimeClient {
         ba: region,
       });
 
-      const response = await fetch(`${this.baseUrl}/index?${params}`, {
+      const response = await fetch(`${this.baseUrl}/signal-index?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (!response.ok) {
+        const text = await response.text();
+        console.error(`WattTime MOER request failed (${response.status}):`, text);
         throw new Error(`WattTime MOER request failed: ${response.status}`);
       }
 
@@ -145,7 +156,7 @@ export class WattTimeClient {
       return {
         timestamp: new Date(data.point_time),
         region,
-        carbonIntensity: data.moer, // lbs CO2/MWh converted to gCO2/kWh
+        carbonIntensity: data.value || data.moer, // v3 uses 'value'
         source: "watttime",
       };
     } catch (error) {
@@ -177,6 +188,8 @@ export class WattTimeClient {
       });
 
       if (!response.ok) {
+        const text = await response.text();
+        console.error(`WattTime forecast request failed (${response.status}):`, text);
         throw new Error(`WattTime forecast request failed: ${response.status}`);
       }
 

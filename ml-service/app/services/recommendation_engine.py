@@ -38,11 +38,11 @@ class RecommendationEngine:
                 print(f"Warning: Could not use CAISO pricing, falling back to TOU: {e}")
 
         # Fallback to TOU rate structure
-        if not pricing_data:
+        if not pricing_data or not isinstance(pricing_data, dict):
             return consumption_kwh * 0.12  # Fallback rate
 
         rate_structure = pricing_data.get('rate_structure')
-        if not rate_structure:
+        if not rate_structure or not isinstance(rate_structure, dict):
             # Try legacy format
             return consumption_kwh * pricing_data.get('off_peak_rate', 0.12)
 
@@ -54,15 +54,59 @@ class RecommendationEngine:
 
         hour = dt.hour
         day_of_week = dt.weekday()  # Monday=0, Sunday=6
+        month = dt.month
 
-        # Check each rate period
+        # Handle different rate structure formats
+        rate = self._get_rate_from_structure(rate_structure, hour, day_of_week, month)
+        return consumption_kwh * rate
+
+    def _get_rate_from_structure(self, rate_structure: Dict, hour: int, day_of_week: int, month: int) -> float:
+        """
+        Extract rate from rate structure based on time.
+        Handles multiple rate structure formats.
+        """
+        # Format 1: seasons → summer/winter → periods → onPeak/midPeak/offPeak
+        if 'seasons' in rate_structure and isinstance(rate_structure['seasons'], dict):
+            seasons = rate_structure['seasons']
+            # Determine season
+            season = 'summer' if month in seasons.get('summer', {}).get('months', [5,6,7,8,9]) else 'winter'
+
+            if season in seasons and 'periods' in seasons[season]:
+                periods = seasons[season]['periods']
+                for period_name, period_config in periods.items():
+                    if isinstance(period_config, dict) and self._is_in_period(hour, day_of_week, period_config):
+                        return period_config.get('rate', 0.12)
+
+        # Format 2: timeOfUse + energyCharges
+        if 'timeOfUse' in rate_structure and 'energyCharges' in rate_structure:
+            tou = rate_structure['timeOfUse']
+            charges = rate_structure['energyCharges']
+
+            # Determine season
+            season = 'summer' if month in tou.get('summer', {}).get('months', [5,6,7,8,9]) else 'winter'
+
+            if season in tou and isinstance(charges, dict):
+                # Check which period this hour falls into
+                season_config = tou[season]
+                for period in ['onPeak', 'midPeak', 'offPeak']:
+                    if period in season_config:
+                        hour_ranges = season_config[period]
+                        for start_hour, end_hour in hour_ranges:
+                            # Handle overnight periods (e.g., [19, 7])
+                            if start_hour > end_hour:  # Wraps around midnight
+                                if hour >= start_hour or hour < end_hour:
+                                    return charges.get(period, 0.12)
+                            else:
+                                if start_hour <= hour < end_hour:
+                                    return charges.get(period, 0.12)
+
+        # Legacy format: simple periods at top level
         for period_name, period_config in rate_structure.items():
-            if self._is_in_period(hour, day_of_week, period_config):
-                rate = period_config.get('rate', 0.12)
-                return consumption_kwh * rate
+            if isinstance(period_config, dict) and 'rate' in period_config:
+                if self._is_in_period(hour, day_of_week, period_config):
+                    return period_config.get('rate', 0.12)
 
-        # Fallback if no period matches
-        return consumption_kwh * 0.12
+        return 0.12  # Fallback
 
     def _is_in_period(self, hour: int, day_of_week: int, period_config: Dict) -> bool:
         """
@@ -89,8 +133,13 @@ class RecommendationEngine:
         # Check if hour matches
         hour_ranges = period_config.get('hours', [])
         for start_hour, end_hour in hour_ranges:
-            if start_hour <= hour < end_hour:
-                return True
+            # Handle overnight periods
+            if start_hour > end_hour:  # Wraps around midnight
+                if hour >= start_hour or hour < end_hour:
+                    return True
+            else:
+                if start_hour <= hour < end_hour:
+                    return True
 
         return False
 
@@ -116,21 +165,20 @@ class RecommendationEngine:
                 pass
 
         # Fallback to TOU rate structure
-        if not pricing_data:
+        if not pricing_data or not isinstance(pricing_data, dict):
             return 0.12
 
         rate_structure = pricing_data.get('rate_structure')
-        if not rate_structure:
+        if not rate_structure or not isinstance(rate_structure, dict):
             return pricing_data.get('off_peak_rate', 0.12)
 
         try:
             dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
             hour = dt.hour
             day_of_week = dt.weekday()
+            month = dt.month
 
-            for period_name, period_config in rate_structure.items():
-                if self._is_in_period(hour, day_of_week, period_config):
-                    return period_config.get('rate', 0.12)
+            return self._get_rate_from_structure(rate_structure, hour, day_of_week, month)
         except:
             pass
 
@@ -283,6 +331,9 @@ class RecommendationEngine:
         """Generate recommendation for avoiding demand charges by reducing peak demand"""
 
         # Only generate if demand charges are configured
+        if not pricing_data or not isinstance(pricing_data, dict):
+            return None
+
         demand_charge = pricing_data.get('demand_charge')
         demand_threshold = pricing_data.get('demand_threshold', 0)
 
@@ -361,6 +412,8 @@ class RecommendationEngine:
                 recommendations.append(load_shift)
         except Exception as e:
             print(f"Error generating load shift recommendation: {e}")
+            import traceback
+            traceback.print_exc()
 
         # Peak avoidance recommendation
         try:
@@ -371,6 +424,8 @@ class RecommendationEngine:
                 recommendations.append(peak_avoid)
         except Exception as e:
             print(f"Error generating peak avoidance recommendation: {e}")
+            import traceback
+            traceback.print_exc()
 
         # Demand charge avoidance recommendation
         try:

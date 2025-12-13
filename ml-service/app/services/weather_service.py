@@ -51,7 +51,7 @@ class WeatherService:
 
         # Check daily API call limit
         if not self._can_make_api_call():
-            print(f"⚠️ API call limit reached ({self.max_daily_calls} calls/day). Using cached or mock data.")
+            print(f"[WARNING] API call limit reached ({self.max_daily_calls} calls/day). Using cached or mock data.")
             # Return cached data even if expired, or mock data
             if cache_key in self._cache:
                 print("Using expired cache to avoid exceeding API limit")
@@ -273,7 +273,7 @@ class WeatherService:
             self._api_call_date = today
 
         self._api_call_count += 1
-        print(f"✓ API call successful. Daily count: {self._api_call_count}/{self.max_daily_calls}")
+        print(f"[OK] API call successful. Daily count: {self._api_call_count}/{self.max_daily_calls}")
 
     def get_api_usage_stats(self) -> Dict:
         """Get current API usage statistics"""

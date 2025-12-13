@@ -9,7 +9,7 @@ const nextConfig = {
   // Fix for Vercel deployment: Don't bundle these packages
   serverComponentsExternalPackages: ['pg', 'pg-pool'],
   experimental: {
-    // Instrument only on Node.js runtime
+    // Instrument only on Node.js runtime (not during build)
     instrumentationHook: true,
   },
 }

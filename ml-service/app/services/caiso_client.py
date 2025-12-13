@@ -58,11 +58,11 @@ class CAISOClient:
             # CAISO returns a ZIP file containing XML, we need to handle this
             # For now, try direct XML parsing
             pricing_data = self._parse_caiso_xml(response.text)
-            print(f"✅ Fetched {len(pricing_data)} CAISO pricing records")
+            print(f"[OK] Fetched {len(pricing_data)} CAISO pricing records")
             return pricing_data
 
         except Exception as e:
-            print(f"⚠️ CAISO API error: {e}")
+            print(f"[WARNING] CAISO API error: {e}")
             print(f"Using fallback pricing based on typical patterns")
             return self._get_fallback_pricing(start_time, end_time)
 
@@ -102,7 +102,7 @@ class CAISOClient:
             return pricing_data
 
         except Exception as e:
-            print(f"⚠️ CAISO day-ahead API error: {e}")
+            print(f"[WARNING] CAISO day-ahead API error: {e}")
             return self._get_fallback_pricing(start_time, end_time)
 
     def _format_datetime(self, dt: datetime) -> str:

@@ -37,7 +37,7 @@ class CarbonIntensityClient:
             List of carbon intensity records with timestamp and intensity
         """
         if not self.api_key:
-            print("⚠️  No Electricity Maps API key found, using fallback data")
+            print("[WARNING] No Electricity Maps API key found, using fallback data")
             return self._get_fallback_ontario_carbon(hours_forecast)
 
         try:
@@ -52,11 +52,11 @@ class CarbonIntensityClient:
             response = requests.get(url, headers=headers, params=params, timeout=10)
 
             if response.status_code == 401:
-                print("⚠️  Invalid Electricity Maps API key, using fallback data")
+                print("[WARNING] Invalid Electricity Maps API key, using fallback data")
                 return self._get_fallback_ontario_carbon(hours_forecast)
 
             if response.status_code == 429:
-                print("⚠️  Rate limit exceeded (50 requests/hour), using fallback data")
+                print("[WARNING] Rate limit exceeded (50 requests/hour), using fallback data")
                 return self._get_fallback_ontario_carbon(hours_forecast)
 
             response.raise_for_status()
@@ -67,7 +67,7 @@ class CarbonIntensityClient:
             current_intensity = data.get('carbonIntensity', 0)
             current_time = datetime.fromisoformat(data.get('datetime', datetime.now().isoformat()).replace('Z', '+00:00'))
 
-            print(f"✅ Fetched Ontario carbon intensity: {current_intensity} gCO2/kWh")
+            print(f"[OK] Fetched Ontario carbon intensity: {current_intensity} gCO2/kWh")
 
             # Since free tier doesn't include forecast, we'll create a forecast
             # based on current value + typical Ontario patterns
@@ -76,7 +76,7 @@ class CarbonIntensityClient:
             return forecast
 
         except Exception as e:
-            print(f"⚠️  Electricity Maps API error: {e}")
+            print(f"[WARNING] Electricity Maps API error: {e}")
             print(f"Using fallback Ontario carbon intensity data")
             return self._get_fallback_ontario_carbon(hours_forecast)
 

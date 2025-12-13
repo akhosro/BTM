@@ -105,11 +105,11 @@ export function DashboardContent() {
           trend: stats.energySpendForecast.trend,
         },
         {
-          title: "CO₂ Intensity Forecast",
-          value: `${stats.carbonIntensity.value} g/kWh`,
-          description: stats.carbonIntensity.description,
-          icon: Leaf,
-          trend: stats.carbonIntensity.trend,
+          title: "Peak Demand Forecast",
+          value: `${stats.peakDemand.value} kWh`,
+          description: stats.peakDemand.description,
+          icon: Zap,
+          trend: stats.peakDemand.trend,
         },
         {
           title: "Optimization Opportunity",
