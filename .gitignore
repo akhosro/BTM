@@ -52,3 +52,6 @@ check-*.mjs
 check-*.ts
 test-*.mjs
 register-*.py
+
+# Archived one-time scripts
+scripts/archive/
