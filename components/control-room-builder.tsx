@@ -1004,7 +1004,26 @@ export function ControlRoomBuilder() {
               onClick={() => setSelectedLine(null)}
             >
               {/* SVG Connection Lines Layer */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, minWidth: '2000px', minHeight: '2000px' }}>
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1, minWidth: '2000px', minHeight: `${(() => {
+                // Calculate total canvas height dynamically based on all sites and their descendants
+                const allSites = canvasItems.filter(item => item.type === "site")
+                const siteCardHeight = 80
+                const siteGap = 20
+                const padding = 100 // Extra padding at bottom
+
+                let totalHeight = 50 // Initial top padding
+
+                allSites.forEach((siteItem) => {
+                  const site = siteItem.data as Site
+                  totalHeight += siteCardHeight + siteGap
+                  const descendantsHeight = ControlRoomUtils.calculateSiteTotalHeight(site.id, canvasItems)
+                  totalHeight += descendantsHeight
+                })
+
+                totalHeight += padding
+
+                return Math.max(2000, totalHeight) // Ensure minimum of 2000px
+              })()}px` }}>
                 <defs>
                   {/* Define arrowhead markers for line endpoints */}
                   <marker id="dot-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">

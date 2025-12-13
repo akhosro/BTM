@@ -44,6 +44,8 @@ export function CSVUpload({ meterId, meterName, category, onUploadComplete }: CS
         data.push({
           timestamp: row.timestamp,
           value: parseFloat(row.value),
+          unit: row.unit || 'kWh',
+          metric: row.metric || 'energy',
           quality: row.quality || 'good',
           metadata: {}
         })
@@ -154,12 +156,44 @@ export function CSVUpload({ meterId, meterName, category, onUploadComplete }: CS
   }
 
   const downloadTemplate = () => {
-    const template = `timestamp,value,quality
-2024-01-01T00:00:00Z,150.5,good
-2024-01-01T00:15:00Z,148.2,good
-2024-01-01T00:30:00Z,152.8,good
-2024-01-01T00:45:00Z,155.1,good
-2024-01-01T01:00:00Z,151.9,good`
+    // Generate category-specific template with appropriate examples
+    // Keep it simple - just timestamp and value (in kWh)
+    // Advanced users can add optional columns: unit, metric, quality
+    let template = ''
+
+    if (category === 'CONS') {
+      // Consumption meter template - typical building load
+      template = `timestamp,value
+2024-01-01T00:00:00Z,150.5
+2024-01-01T00:15:00Z,148.2
+2024-01-01T00:30:00Z,152.8
+2024-01-01T00:45:00Z,155.1
+2024-01-01T01:00:00Z,151.9`
+    } else if (category === 'PROD') {
+      // Solar production meter template - morning ramp-up
+      template = `timestamp,value
+2024-01-01T08:00:00Z,25.3
+2024-01-01T08:15:00Z,42.7
+2024-01-01T08:30:00Z,68.5
+2024-01-01T08:45:00Z,89.2
+2024-01-01T09:00:00Z,105.8`
+    } else if (category === 'STOR') {
+      // Battery storage meter template - charge/discharge (negative = discharge)
+      template = `timestamp,value
+2024-01-01T00:00:00Z,45.2
+2024-01-01T00:15:00Z,-30.5
+2024-01-01T00:30:00Z,20.8
+2024-01-01T00:45:00Z,-15.3
+2024-01-01T01:00:00Z,0.0`
+    } else {
+      // Grid injection meter template (INJ) - export to grid
+      template = `timestamp,value
+2024-01-01T10:00:00Z,85.4
+2024-01-01T10:15:00Z,92.1
+2024-01-01T10:30:00Z,78.6
+2024-01-01T10:45:00Z,88.9
+2024-01-01T11:00:00Z,95.2`
+    }
 
     const blob = new Blob([template], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -177,7 +211,7 @@ export function CSVUpload({ meterId, meterName, category, onUploadComplete }: CS
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium">Upload Measurement Data</h3>
-          <p className="text-xs text-muted-foreground">Upload CSV file with timestamp and value columns</p>
+          <p className="text-xs text-muted-foreground">Upload CSV with columns: timestamp, value (in kWh)</p>
         </div>
         <Button variant="outline" size="sm" onClick={downloadTemplate}>
           <Download className="h-3 w-3 mr-2" />
@@ -194,7 +228,7 @@ export function CSVUpload({ meterId, meterName, category, onUploadComplete }: CS
               {file ? file.name : "Choose a CSV file to upload"}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              CSV format: timestamp, value, quality (optional)
+              CSV format: timestamp, value (in kWh)
             </p>
           </div>
 
@@ -250,8 +284,7 @@ export function CSVUpload({ meterId, meterName, category, onUploadComplete }: CS
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-2">Timestamp</th>
-                    <th className="text-right p-2">Value</th>
-                    <th className="text-left p-2">Quality</th>
+                    <th className="text-right p-2">Value (kWh)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -259,7 +292,6 @@ export function CSVUpload({ meterId, meterName, category, onUploadComplete }: CS
                     <tr key={index} className="border-b">
                       <td className="p-2">{new Date(row.timestamp).toLocaleString()}</td>
                       <td className="text-right p-2">{row.value}</td>
-                      <td className="p-2">{row.quality}</td>
                     </tr>
                   ))}
                 </tbody>
