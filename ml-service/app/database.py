@@ -229,14 +229,13 @@ def fetch_weather_forecasts(site_id: str, start_date: str, end_date: str):
     query = """
         SELECT
             forecast_timestamp as timestamp,
-            temperature,
-            humidity,
-            cloud_cover,
-            wind_speed,
-            precipitation,
+            temperature_forecast as temperature,
+            cloud_cover_forecast as cloud_cover,
+            wind_speed_forecast as wind_speed,
+            precipitation_forecast as precipitation,
             precipitation_probability,
-            solar_irradiance,
-            solar_generation
+            solar_irradiance_forecast as solar_irradiance,
+            solar_generation_forecast as solar_generation
         FROM weather_forecasts
         WHERE site_id = %s
           AND forecast_timestamp >= %s
@@ -247,8 +246,12 @@ def fetch_weather_forecasts(site_id: str, start_date: str, end_date: str):
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(query, (site_id, start_date, end_date))
+            # Convert to list of dicts
+            columns = [desc[0] for desc in cursor.description]
             results = cursor.fetchall()
-            return results if results else []
+            if results:
+                return [dict(zip(columns, row)) for row in results]
+            return []
 
 def get_site_coordinates(site_id: str):
     """Get latitude, longitude, grid zone, and solar capacity for a site"""
