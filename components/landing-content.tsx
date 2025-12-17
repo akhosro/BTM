@@ -359,13 +359,12 @@ export function LandingContent() {
                 <span>AI-Powered Energy Management</span>
               </div>
               <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
-                Optimize Your Building's{" "}
-                <span className="text-primary">Energy Performance</span>
+                Cut Energy Costs & Carbon Emissions{" "}
+                <span className="text-primary">by 20-30%</span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                Real-time monitoring, AI-driven insights, and automated optimization
-                for multi-site energy management. Reduce costs and carbon emissions
-                effortlessly.
+                AI predicts when energy is cheapest and cleanest. Automatically optimize
+                your buildings to save money and reduce emissions. Typical savings: $5-15K/month.
               </p>
               <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                 <Button
@@ -407,20 +406,20 @@ export function LandingContent() {
             <div className="grid gap-6 sm:grid-cols-3">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-4xl font-bold text-primary">30%</CardTitle>
-                  <CardDescription>Average cost reduction</CardDescription>
+                  <CardTitle className="text-4xl font-bold text-primary">20-30%</CardTitle>
+                  <CardDescription>Savings on energy costs</CardDescription>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-4xl font-bold text-primary">25%</CardTitle>
+                  <CardDescription>Carbon emissions reduction</CardDescription>
                 </CardHeader>
               </Card>
               <Card>
                 <CardHeader>
                   <CardTitle className="text-4xl font-bold text-primary">24/7</CardTitle>
-                  <CardDescription>Real-time monitoring</CardDescription>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-4xl font-bold text-primary">500+</CardTitle>
-                  <CardDescription>Buildings optimized</CardDescription>
+                  <CardDescription>Automated optimization</CardDescription>
                 </CardHeader>
               </Card>
             </div>
@@ -455,10 +454,10 @@ export function LandingContent() {
                   <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                     <TrendingDown className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle>AI-Powered Insights</CardTitle>
+                  <CardTitle>Predictive AI</CardTitle>
                   <CardDescription>
-                    Get actionable recommendations to reduce costs and improve
-                    efficiency
+                    Forecasts energy demand 24 hours ahead so you can shift loads
+                    to cheaper, cleaner times automatically.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -487,23 +486,24 @@ export function LandingContent() {
               <Card>
                 <CardHeader>
                   <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <DollarSign className="h-6 w-6 text-primary" />
+                    <Leaf className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle>Cost Optimization</CardTitle>
+                  <CardTitle>Carbon Reduction</CardTitle>
                   <CardDescription>
-                    Automatic load shifting and demand response to minimize electricity
-                    costs
+                    Automatically shift energy use to when the grid is cleanest.
+                    Reduce emissions by 25% while saving money.
                   </CardDescription>
                 </CardHeader>
               </Card>
               <Card>
                 <CardHeader>
                   <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <Shield className="h-6 w-6 text-primary" />
+                    <DollarSign className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle>Enterprise Security</CardTitle>
+                  <CardTitle>Smart Recommendations</CardTitle>
                   <CardDescription>
-                    Bank-level encryption and compliance with industry standards
+                    Get daily alerts for peak demand, HVAC optimization, equipment
+                    efficiency, and more. Act on insights automatically.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -589,8 +589,13 @@ export function LandingContent() {
                       Start Free Trial
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
-                    <Button variant="outline" className="w-full" size="lg">
-                      Schedule a Demo
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                      asChild
+                    >
+                      <Link href="/demo">Schedule a Demo</Link>
                     </Button>
                   </div>
                   <p className="text-center text-sm text-muted-foreground">
@@ -625,8 +630,9 @@ export function LandingContent() {
                     size="lg"
                     variant="outline"
                     className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10"
+                    asChild
                   >
-                    Schedule Demo
+                    <Link href="/demo">Schedule Demo</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -643,31 +649,34 @@ export function LandingContent() {
                     <span className="text-lg font-bold">Enalysis</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    AI-powered energy management for the modern enterprise
+                    AI-powered energy management for commercial & industrial facilities
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-4">Product</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li><Link href="#features">Features</Link></li>
-                    <li><Link href="#pricing">Pricing</Link></li>
-                    <li><Link href="/">Demo</Link></li>
+                    <li><Link href="#features" className="hover:text-foreground">Features</Link></li>
+                    <li><Link href="#pricing" className="hover:text-foreground">Pricing</Link></li>
+                    <li>
+                      <button onClick={() => switchToSignup()} className="hover:text-foreground">
+                        Get Started
+                      </button>
+                    </li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-4">Company</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>About</li>
-                    <li>Blog</li>
-                    <li>Careers</li>
+                    <li><Link href="/about" className="hover:text-foreground">About</Link></li>
+                    <li><Link href="/blog" className="hover:text-foreground">Blog</Link></li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-4">Legal</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>Privacy</li>
-                    <li>Terms</li>
-                    <li>Security</li>
+                    <li><Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link></li>
+                    <li><Link href="/terms" className="hover:text-foreground">Terms of Service</Link></li>
+                    <li><Link href="/security" className="hover:text-foreground">Security</Link></li>
                   </ul>
                 </div>
               </div>

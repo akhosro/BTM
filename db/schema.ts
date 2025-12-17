@@ -566,3 +566,22 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
     references: [users.id],
   }),
 }));
+
+// ===============================
+// DEMO REQUESTS
+// ===============================
+
+export const demoRequests = pgTable("demo_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  company: text("company").notNull(),
+  jobTitle: text("job_title").notNull(),
+  phone: text("phone"),
+  facilityType: text("facility_type").notNull(),
+  message: text("message"),
+  status: text("status").default("pending").notNull(), // "pending", "contacted", "scheduled", "completed", "cancelled"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

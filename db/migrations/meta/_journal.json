@@ -22,6 +22,13 @@
       "when": 1765421186700,
       "tag": "0002_same_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1765940971244,
+      "tag": "0003_premium_matthew_murdock",
+      "breakpoints": true
     }
   ]
 }
