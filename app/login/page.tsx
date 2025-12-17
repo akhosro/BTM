@@ -79,16 +79,19 @@ export default function LoginPage() {
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Work Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="you@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Company email required (not Gmail, Yahoo, etc.)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
@@ -122,7 +125,7 @@ export default function LoginPage() {
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Don't have an account?{" "}
-                  <Link href="/landing" className="text-primary hover:underline">
+                  <Link href="/signup" className="text-primary hover:underline">
                     Sign up
                   </Link>
                 </p>

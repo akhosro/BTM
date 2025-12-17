@@ -106,7 +106,7 @@ export default function AboutPage() {
 
           <div className="text-center pt-8">
             <Button size="lg" asChild>
-              <Link href="/login">
+              <Link href="/signup">
                 Get Started
               </Link>
             </Button>

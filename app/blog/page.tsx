@@ -114,7 +114,7 @@ export default function BlogPage() {
               Want to learn more about optimizing your facility's energy?
             </p>
             <Button size="lg" asChild>
-              <Link href="/login">
+              <Link href="/signup">
                 Get Started
               </Link>
             </Button>

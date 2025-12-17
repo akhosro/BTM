@@ -144,12 +144,10 @@ export function LandingContent() {
                 Back
               </Button>
               <Button
-                onClick={() => {
-                  switchToLogin()
-                }}
+                asChild
                 className={showLogin || showSignup ? "hidden" : ""}
               >
-                Login
+                <Link href="/login">Login</Link>
               </Button>
             </div>
           </div>
@@ -370,18 +368,12 @@ export function LandingContent() {
                 <Button
                   size="lg"
                   className="text-lg"
-                  onClick={() => switchToSignup()}
+                  asChild
                 >
-                  Get Started Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="text-lg"
-                  onClick={() => switchToLogin()}
-                >
-                  Sign In
+                  <Link href="/signup">
+                    Get Started Free
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
                 </Button>
               </div>
               <div className="flex items-center justify-center gap-8 pt-8 text-sm text-muted-foreground">
@@ -584,10 +576,12 @@ export function LandingContent() {
                     <Button
                       className="w-full"
                       size="lg"
-                      onClick={() => switchToSignup()}
+                      asChild
                     >
-                      Start Free Trial
-                      <ArrowRight className="ml-2 h-5 w-5" />
+                      <Link href="/signup">
+                        Start Free Trial
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </Link>
                     </Button>
                     <Button
                       variant="outline"
@@ -621,10 +615,12 @@ export function LandingContent() {
                   <Button
                     size="lg"
                     variant="secondary"
-                    onClick={() => switchToSignup()}
+                    asChild
                   >
-                    Start Free Trial
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <Link href="/signup">
+                      Start Free Trial
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
                   </Button>
                   <Button
                     size="lg"
@@ -658,9 +654,9 @@ export function LandingContent() {
                     <li><Link href="#features" className="hover:text-foreground">Features</Link></li>
                     <li><Link href="#pricing" className="hover:text-foreground">Pricing</Link></li>
                     <li>
-                      <button onClick={() => switchToSignup()} className="hover:text-foreground">
+                      <Link href="/signup" className="hover:text-foreground">
                         Get Started
-                      </button>
+                      </Link>
                     </li>
                   </ul>
                 </div>

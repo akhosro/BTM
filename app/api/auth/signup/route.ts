@@ -31,10 +31,56 @@ export async function POST(request: Request) {
       );
     }
 
-    // Password validation (minimum 6 characters for MVP)
-    if (password.length < 6) {
+    // Company email validation (block common free email providers)
+    const freeEmailProviders = [
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+      'aol.com', 'icloud.com', 'protonmail.com', 'mail.com',
+      'yandex.com', 'gmx.com', 'zoho.com'
+    ];
+    const emailDomain = email.toLowerCase().split('@')[1];
+    if (freeEmailProviders.includes(emailDomain)) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
+        { error: "Please use a company email address" },
+        { status: 400 }
+      );
+    }
+
+    // Password complexity validation
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters long" },
+        { status: 400 }
+      );
+    }
+
+    // Check for uppercase letter
+    if (!/[A-Z]/.test(password)) {
+      return NextResponse.json(
+        { error: "Password must contain at least one uppercase letter" },
+        { status: 400 }
+      );
+    }
+
+    // Check for lowercase letter
+    if (!/[a-z]/.test(password)) {
+      return NextResponse.json(
+        { error: "Password must contain at least one lowercase letter" },
+        { status: 400 }
+      );
+    }
+
+    // Check for number
+    if (!/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { error: "Password must contain at least one number" },
+        { status: 400 }
+      );
+    }
+
+    // Check for special character
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      return NextResponse.json(
+        { error: "Password must contain at least one special character (!@#$%^&*...)" },
         { status: 400 }
       );
     }
