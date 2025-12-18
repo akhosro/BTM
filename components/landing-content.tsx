@@ -21,6 +21,7 @@ import {
   Sun,
   Wind,
   Loader2,
+  Linkedin,
 } from "lucide-react"
 
 export function LandingContent() {
@@ -644,9 +645,20 @@ export function LandingContent() {
                     <Zap className="h-6 w-6 text-primary" />
                     <span className="text-lg font-bold">Enalysis</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-4">
                     AI-powered energy management for commercial & industrial facilities
                   </p>
+                  <div className="flex gap-4">
+                    <a
+                      href="https://www.linkedin.com/company/enalysisenergy/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      aria-label="Follow us on LinkedIn"
+                    >
+                      <Linkedin className="h-5 w-5" />
+                    </a>
+                  </div>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-4">Product</h3>
