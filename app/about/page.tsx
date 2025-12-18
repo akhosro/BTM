@@ -48,8 +48,8 @@ export default function AboutPage() {
               </p>
               <p>
                 We built an AI-powered platform that predicts energy demand 24 hours ahead and automatically
-                optimizes buildings to reduce costs and carbon emissions. Our customers save $5-15K per month
-                per facility while reducing their environmental impact by 25%.
+                optimizes buildings to reduce costs and carbon emissions. Our customers typically see 20-30%
+                reductions in energy costs while reducing their environmental impact by 25%.
               </p>
             </CardContent>
           </Card>

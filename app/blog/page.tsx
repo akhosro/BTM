@@ -56,7 +56,9 @@ export default function BlogPage() {
                   Most facilities don't realize they're being charged based on their highest 15-minute power
                   usage of the month. This single metric can cost thousands of dollars...
                 </p>
-                <Button variant="outline" disabled>Coming Soon</Button>
+                <Button variant="outline" asChild>
+                  <Link href="/blog/peak-demand-charges">Read More</Link>
+                </Button>
               </CardContent>
             </Card>
 
@@ -80,7 +82,9 @@ export default function BlogPage() {
                   The energy management software market has evolved rapidly. Here's what separates
                   modern AI-driven platforms from legacy systems...
                 </p>
-                <Button variant="outline" disabled>Coming Soon</Button>
+                <Button variant="outline" asChild>
+                  <Link href="/blog/buyers-guide-2025">Read More</Link>
+                </Button>
               </CardContent>
             </Card>
 
@@ -104,7 +108,9 @@ export default function BlogPage() {
                   When this Toronto-based data center approached us, they were spending $450K/year on
                   electricity. Six months later, their costs dropped to $324K...
                 </p>
-                <Button variant="outline" disabled>Coming Soon</Button>
+                <Button variant="outline" asChild>
+                  <Link href="/blog/data-center-case-study">Read More</Link>
+                </Button>
               </CardContent>
             </Card>
           </div>
