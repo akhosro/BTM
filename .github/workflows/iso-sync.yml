@@ -1,0 +1,82 @@
+name: Sync ISO Market Prices
+
+on:
+  schedule:
+    # Run every 6 hours (at 00:00, 06:00, 12:00, 18:00 UTC)
+    # This covers IESO's daily price updates and captures actuals throughout the day
+    - cron: '0 */6 * * *'
+
+  # Allow manual triggering from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      sync_type:
+        description: 'Sync type'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - forecast
+          - actual
+          - both
+      iso:
+        description: 'ISO to sync'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - IESO
+          - CAISO
+          - both
+
+jobs:
+  sync-iso-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Sync ISO Market Prices
+        run: |
+          echo "🔄 Syncing ISO market prices..."
+
+          # Use workflow inputs if manually triggered, otherwise use defaults
+          SYNC_TYPE="${{ github.event.inputs.sync_type || 'both' }}"
+          ISO="${{ github.event.inputs.iso || 'both' }}"
+
+          echo "Sync type: $SYNC_TYPE"
+          echo "ISO: $ISO"
+
+          # Call the API endpoint
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST ${{ secrets.VERCEL_PRODUCTION_URL }}/api/scheduled/iso-sync \
+            -H "Content-Type: application/json" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
+            -d "{\"type\": \"$SYNC_TYPE\", \"iso\": \"$ISO\"}")
+
+          # Extract HTTP status code
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+
+          # Check if successful
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ ISO price sync completed successfully"
+
+            # Parse and display results
+            echo "$BODY" | jq -r '
+              "📊 Sync Results:",
+              "IESO Forecast: \(.results.IESO.forecast.stored) stored, \(.results.IESO.forecast.skipped) skipped",
+              "IESO Actual: \(.results.IESO.actual.stored) stored, \(.results.IESO.actual.skipped) skipped",
+              "CAISO Forecast: \(.results.CAISO.forecast.stored) stored, \(.results.CAISO.forecast.skipped) skipped",
+              "CAISO Actual: \(.results.CAISO.actual.stored) stored, \(.results.CAISO.actual.skipped) skipped"
+            '
+          else
+            echo "❌ ISO price sync failed with HTTP $HTTP_CODE"
+            echo "$BODY" | jq '.' || echo "$BODY"
+            exit 1
+          fi
+
+      - name: Report Errors
+        if: failure()
+        run: |
+          echo "::error::ISO price sync failed. Check logs above for details."
+          echo "::notice::If this is the first run, you may need to set the CRON_SECRET in GitHub secrets"
