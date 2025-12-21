@@ -123,4 +123,17 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Blog post heading styles - make them bold and prominent */
+  .prose h2 {
+    @apply font-bold text-foreground;
+  }
+
+  .prose h3 {
+    @apply font-bold text-foreground;
+  }
+
+  .prose h4 {
+    @apply font-semibold text-foreground;
+  }
 }
