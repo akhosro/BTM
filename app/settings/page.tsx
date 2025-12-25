@@ -1,10 +1,13 @@
 import { AppLayout } from "@/components/app-layout"
 import { SettingsContent } from "@/components/settings-content"
+import { TrialGuard } from "@/components/trial-guard"
 
 export default function SettingsPage() {
   return (
-    <AppLayout>
-      <SettingsContent />
-    </AppLayout>
+    <TrialGuard>
+      <AppLayout>
+        <SettingsContent />
+      </AppLayout>
+    </TrialGuard>
   )
 }

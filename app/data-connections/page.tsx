@@ -12,6 +12,7 @@ import { Sun, Activity, Battery, Zap, Save, CheckCircle2, XCircle, Loader2, Uplo
 import { AppLayout } from "@/components/app-layout"
 import { CSVUpload } from "@/components/csv-upload"
 import { InjectionValidation } from "@/components/injection-validation"
+import { TrialGuard } from "@/components/trial-guard"
 
 type Meter = {
   id: string
@@ -31,7 +32,7 @@ type EnergySource = {
   active: boolean
 }
 
-export default function DataConnectionsPage() {
+function DataConnectionsPage() {
   const [meters, setMeters] = useState<Meter[]>([])
   const [selectedCategory, setSelectedCategory] = useState<"PROD" | "CONS" | "STOR" | "INJ">("PROD")
   const [energySources, setEnergySources] = useState<Record<string, EnergySource[]>>({})
@@ -567,5 +568,13 @@ export default function DataConnectionsPage() {
         </Tabs>
       </div>
     </AppLayout>
+  )
+}
+
+export default function DataConnectionsPageWithGuard() {
+  return (
+    <TrialGuard>
+      <DataConnectionsPage />
+    </TrialGuard>
   )
 }
