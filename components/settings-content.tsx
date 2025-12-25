@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
-import { User, Save, Moon, Sun, Monitor, Database, CheckCircle2, XCircle, AlertCircle, Loader2, Settings2 } from "lucide-react"
+import { User, Save, Moon, Sun, Monitor, Database, CheckCircle2, XCircle, AlertCircle, Loader2, Settings2, CreditCard, Calendar } from "lucide-react"
+import { getTrialStatus, formatTrialStatus } from "@/lib/trial"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,6 +46,9 @@ type User = {
   jobTitle: string | null
   company: string | null
   phone: string | null
+  subscription_status: string
+  trial_ends_at: string | null
+  subscription_started_at: string | null
 }
 
 type UserPreferences = {
@@ -366,6 +370,94 @@ export function SettingsContent() {
                   </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <CreditCard className="h-5 w-5" />
+                Subscription
+              </CardTitle>
+              <CardDescription>View your subscription status and trial information</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {userLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : user ? (
+                <>
+                  {(() => {
+                    const trialStatus = getTrialStatus({
+                      subscriptionStatus: user.subscription_status,
+                      trialEndsAt: user.trial_ends_at ? new Date(user.trial_ends_at) : null,
+                      subscriptionStartedAt: user.subscription_started_at ? new Date(user.subscription_started_at) : null,
+                    })
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-foreground">Status</p>
+                              <Badge variant={
+                                user.subscription_status === "active" ? "default" :
+                                trialStatus.hasExpired ? "destructive" : "secondary"
+                              }>
+                                {user.subscription_status === "active" ? "Active Subscription" :
+                                 trialStatus.hasExpired ? "Trial Expired" : "Free Trial"}
+                              </Badge>
+                            </div>
+                            {user.subscription_status === "trial" && trialStatus.trialEndsAt && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {trialStatus.hasExpired ? (
+                                  <span>Trial expired on {trialStatus.trialEndsAt.toLocaleDateString()}</span>
+                                ) : (
+                                  <span>
+                                    Trial ends {trialStatus.trialEndsAt.toLocaleDateString()}
+                                    {trialStatus.daysRemaining !== null && (
+                                      <> ({trialStatus.daysRemaining} day{trialStatus.daysRemaining !== 1 ? 's' : ''} remaining)</>
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {user.subscription_status === "active" && user.subscription_started_at && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>Active since {new Date(user.subscription_started_at).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          {user.subscription_status !== "active" && (
+                            <Button
+                              size="sm"
+                              variant={trialStatus.hasExpired ? "default" : "outline"}
+                              onClick={() => {
+                                window.location.href = "/contact"
+                              }}
+                            >
+                              Upgrade Now
+                            </Button>
+                          )}
+                        </div>
+                        {user.subscription_status === "trial" && !trialStatus.hasExpired && (
+                          <p className="text-xs text-muted-foreground">
+                            Your free trial includes access to all features. Upgrade to continue after your trial ends.
+                          </p>
+                        )}
+                        {trialStatus.hasExpired && (
+                          <p className="text-xs text-red-600">
+                            Your trial has expired. Please upgrade to continue using Enalysis.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </>
+              ) : null}
             </CardContent>
           </Card>
 
