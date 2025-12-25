@@ -12,9 +12,7 @@ export async function register() {
   // Check multiple build-time indicators
   if (
     process.env.NEXT_PHASE === 'phase-production-build' ||
-    process.env.NEXT_PHASE === 'phase-export' ||
-    process.argv.includes('build') ||
-    process.argv.includes('export')
+    process.env.NEXT_PHASE === 'phase-export'
   ) {
     console.log('📅 Skipping scheduler initialization during build');
     return;
