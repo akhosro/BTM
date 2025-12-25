@@ -677,6 +677,7 @@ export function LandingContent() {
                   <ul className="space-y-2 text-sm text-muted-foreground">
                     <li><Link href="/about" className="hover:text-foreground">About</Link></li>
                     <li><Link href="/blog" className="hover:text-foreground">Blog</Link></li>
+                    <li><Link href="/contact" className="hover:text-foreground">Contact</Link></li>
                   </ul>
                 </div>
                 <div>
