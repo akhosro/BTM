@@ -523,6 +523,10 @@ export const users = pgTable("users", {
   phone: text("phone"),
   avatarUrl: text("avatar_url"),
   active: boolean("active").default(true).notNull(),
+  // Trial and subscription tracking
+  subscriptionStatus: text("subscription_status").default("trial").notNull(), // "trial" | "active" | "expired" | "cancelled"
+  trialEndsAt: timestamp("trial_ends_at"), // Set to 14 days from signup
+  subscriptionStartedAt: timestamp("subscription_started_at"), // When they converted from trial
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

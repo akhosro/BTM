@@ -101,7 +101,11 @@ export async function POST(request: Request) {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create new user
+    // Calculate trial end date (14 days from now)
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+    // Create new user with trial period
     const [newUser] = await db
       .insert(users)
       .values({
@@ -111,6 +115,8 @@ export async function POST(request: Request) {
         lastName: lastName || null,
         company: company || null,
         jobTitle: jobTitle || null,
+        subscriptionStatus: "trial",
+        trialEndsAt: trialEndsAt,
       })
       .returning();
 
