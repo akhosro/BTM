@@ -46,9 +46,9 @@ type User = {
   jobTitle: string | null
   company: string | null
   phone: string | null
-  subscription_status: string
-  trial_ends_at: string | null
-  subscription_started_at: string | null
+  subscriptionStatus: string
+  trialEndsAt: string | null
+  subscriptionStartedAt: string | null
 }
 
 type UserPreferences = {
@@ -390,9 +390,9 @@ export function SettingsContent() {
                 <>
                   {(() => {
                     const trialStatus = getTrialStatus({
-                      subscriptionStatus: user.subscription_status,
-                      trialEndsAt: user.trial_ends_at ? new Date(user.trial_ends_at) : null,
-                      subscriptionStartedAt: user.subscription_started_at ? new Date(user.subscription_started_at) : null,
+                      subscriptionStatus: user.subscriptionStatus,
+                      trialEndsAt: user.trialEndsAt ? new Date(user.trialEndsAt) : null,
+                      subscriptionStartedAt: user.subscriptionStartedAt ? new Date(user.subscriptionStartedAt) : null,
                     })
 
                     return (
@@ -402,14 +402,14 @@ export function SettingsContent() {
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium text-foreground">Status</p>
                               <Badge variant={
-                                user.subscription_status === "active" ? "default" :
+                                user.subscriptionStatus === "active" ? "default" :
                                 trialStatus.hasExpired ? "destructive" : "secondary"
                               }>
-                                {user.subscription_status === "active" ? "Active Subscription" :
+                                {user.subscriptionStatus === "active" ? "Active Subscription" :
                                  trialStatus.hasExpired ? "Trial Expired" : "Free Trial"}
                               </Badge>
                             </div>
-                            {user.subscription_status === "trial" && trialStatus.trialEndsAt && (
+                            {user.subscriptionStatus === "trial" && trialStatus.trialEndsAt && (
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Calendar className="h-3 w-3" />
                                 {trialStatus.hasExpired ? (
@@ -424,14 +424,14 @@ export function SettingsContent() {
                                 )}
                               </div>
                             )}
-                            {user.subscription_status === "active" && user.subscription_started_at && (
+                            {user.subscriptionStatus === "active" && user.subscriptionStartedAt && (
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Calendar className="h-3 w-3" />
-                                <span>Active since {new Date(user.subscription_started_at).toLocaleDateString()}</span>
+                                <span>Active since {new Date(user.subscriptionStartedAt).toLocaleDateString()}</span>
                               </div>
                             )}
                           </div>
-                          {user.subscription_status !== "active" && (
+                          {user.subscriptionStatus !== "active" && (
                             <Button
                               size="sm"
                               variant={trialStatus.hasExpired ? "default" : "outline"}
@@ -443,7 +443,7 @@ export function SettingsContent() {
                             </Button>
                           )}
                         </div>
-                        {user.subscription_status === "trial" && !trialStatus.hasExpired && (
+                        {user.subscriptionStatus === "trial" && !trialStatus.hasExpired && (
                           <p className="text-xs text-muted-foreground">
                             Your free trial includes access to all features. Upgrade to continue after your trial ends.
                           </p>

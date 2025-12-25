@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { getTrialStatus, formatTrialStatus, type TrialStatus } from "@/lib/trial"
 
 interface UserWithTrial {
-  subscription_status: string
-  trial_ends_at: string | null
-  subscription_started_at: string | null
+  subscriptionStatus: string
+  trialEndsAt: string | null
+  subscriptionStartedAt: string | null
 }
 
 export function TrialBanner() {
@@ -23,13 +23,17 @@ export function TrialBanner() {
         if (response.ok) {
           const userData: UserWithTrial = await response.json()
 
+          console.log("[TrialBanner] User data:", userData)
+
           const status = getTrialStatus({
-            subscriptionStatus: userData.subscription_status,
-            trialEndsAt: userData.trial_ends_at ? new Date(userData.trial_ends_at) : null,
-            subscriptionStartedAt: userData.subscription_started_at
-              ? new Date(userData.subscription_started_at)
+            subscriptionStatus: userData.subscriptionStatus,
+            trialEndsAt: userData.trialEndsAt ? new Date(userData.trialEndsAt) : null,
+            subscriptionStartedAt: userData.subscriptionStartedAt
+              ? new Date(userData.subscriptionStartedAt)
               : null,
           })
+
+          console.log("[TrialBanner] Trial status:", status)
 
           setTrialStatus(status)
         }
@@ -59,7 +63,10 @@ export function TrialBanner() {
   // Show error if trial has expired
   const showError = trialStatus.hasExpired
 
+  console.log("[TrialBanner] showWarning:", showWarning, "showError:", showError)
+
   if (!showWarning && !showError) {
+    console.log("[TrialBanner] Not showing banner - neither warning nor error condition met")
     return null
   }
 
