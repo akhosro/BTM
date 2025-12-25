@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { getTrialStatus, formatTrialStatus, type TrialStatus } from "@/lib/trial"
 
 interface UserWithTrial {
-  subscriptionStatus: string
-  trialEndsAt: string | null
-  subscriptionStartedAt: string | null
+  subscription_status: string
+  trial_ends_at: string | null
+  subscription_started_at: string | null
 }
 
 export function TrialBanner() {
@@ -24,10 +24,10 @@ export function TrialBanner() {
           const userData: UserWithTrial = await response.json()
 
           const status = getTrialStatus({
-            subscriptionStatus: userData.subscriptionStatus,
-            trialEndsAt: userData.trialEndsAt ? new Date(userData.trialEndsAt) : null,
-            subscriptionStartedAt: userData.subscriptionStartedAt
-              ? new Date(userData.subscriptionStartedAt)
+            subscriptionStatus: userData.subscription_status,
+            trialEndsAt: userData.trial_ends_at ? new Date(userData.trial_ends_at) : null,
+            subscriptionStartedAt: userData.subscription_started_at
+              ? new Date(userData.subscription_started_at)
               : null,
           })
 
