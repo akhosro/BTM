@@ -44,8 +44,8 @@ jobs:
           echo "Sync type: $SYNC_TYPE"
           echo "ISO: $ISO"
 
-          # Call the API endpoint
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST ${{ secrets.VERCEL_PRODUCTION_URL }}/api/scheduled/iso-sync \
+          # Call the API endpoint (follow redirects with -L flag)
+          RESPONSE=$(curl -L -s -w "\n%{http_code}" -X POST ${{ secrets.VERCEL_PRODUCTION_URL }}/api/scheduled/iso-sync \
             -H "Content-Type: application/json" \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" \
             -d "{\"type\": \"$SYNC_TYPE\", \"iso\": \"$ISO\"}")
