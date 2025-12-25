@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Mail, Phone, MapPin, MessageSquare } from "lucide-react";
+import { ArrowLeft, Mail, MapPin, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -92,39 +92,19 @@ export default function ContactPage() {
 
           {/* Additional Contact Information */}
           <div className="bg-muted/30 rounded-lg p-8">
-            <h2 className="text-2xl font-bold mb-6">Other Ways to Reach Us</h2>
+            <h2 className="text-2xl font-bold mb-6">Where We're Located</h2>
 
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Phone */}
-              <div className="flex items-start gap-4">
-                <Phone className="h-6 w-6 text-primary mt-1" />
-                <div>
-                  <h3 className="font-semibold mb-2">Phone</h3>
-                  <a
-                    href="tel:+16479991234"
-                    className="text-primary hover:underline"
-                  >
-                    +1 (647) 999-1234
-                  </a>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Mon-Fri, 9 AM - 6 PM EST
-                  </p>
-                </div>
-              </div>
-
-              {/* Location */}
-              <div className="flex items-start gap-4">
-                <MapPin className="h-6 w-6 text-primary mt-1" />
-                <div>
-                  <h3 className="font-semibold mb-2">Location</h3>
-                  <p className="text-muted-foreground">
-                    Toronto, Ontario<br />
-                    Canada
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Serving clients across North America
-                  </p>
-                </div>
+            <div className="flex items-start gap-4 max-w-md">
+              <MapPin className="h-6 w-6 text-primary mt-1" />
+              <div>
+                <h3 className="font-semibold mb-2">Location</h3>
+                <p className="text-muted-foreground">
+                  Toronto, Ontario<br />
+                  Canada
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Serving clients across North America
+                </p>
               </div>
             </div>
           </div>
